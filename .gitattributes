@@ -1,0 +1,4 @@
+* text=auto
+*.png binary
+# OpenSCAD exports: large generated meshes, never diffed
+*.stl binary linguist-generated
