@@ -1,0 +1,1467 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MANTIS</title>
+<meta name="description" content="MANTIS machine inspection dashboard - live vibration, temperature and acoustic readings over Bluetooth LE or USB">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="theme-color" content="#f9f9f7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0d0d0d" media="(prefers-color-scheme: dark)">
+<style>
+:root {
+  color-scheme: light;
+  --page: #f9f9f7;
+  --surface: #fcfcfb;
+  --ink: #0b0b0b;
+  --ink-2: #52514e;
+  --muted: #898781;
+  --grid: #e1e0d9;
+  --axis: #c3c2b7;
+  --border: rgba(11, 11, 11, 0.10);
+  --hover: rgba(11, 11, 11, 0.05);
+  --series: #2a78d6;
+  --series-wash: rgba(42, 120, 214, 0.10);
+  --series-track: #cde2fb;
+  --btn-bg: #0b0b0b;
+  --btn-ink: #ffffff;
+  --good: #0ca30c;
+  --warning: #fab219;
+  --serious: #ec835a;
+  --critical: #d03b3b;
+  --radius: 14px;
+  font-family: system-ui, -apple-system, "Segoe UI", Tahoma, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --page: #0d0d0d;
+    --surface: #1a1a19;
+    --ink: #ffffff;
+    --ink-2: #c3c2b7;
+    --muted: #898781;
+    --grid: #2c2c2a;
+    --axis: #383835;
+    --border: rgba(255, 255, 255, 0.10);
+    --hover: rgba(255, 255, 255, 0.06);
+    --series: #3987e5;
+    --series-wash: rgba(57, 135, 229, 0.14);
+    --series-track: #184f95;
+    --btn-bg: #ffffff;
+    --btn-ink: #0b0b0b;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #0d0d0d;
+  --surface: #1a1a19;
+  --ink: #ffffff;
+  --ink-2: #c3c2b7;
+  --muted: #898781;
+  --grid: #2c2c2a;
+  --axis: #383835;
+  --border: rgba(255, 255, 255, 0.10);
+  --hover: rgba(255, 255, 255, 0.06);
+  --series: #3987e5;
+  --series-wash: rgba(57, 135, 229, 0.14);
+  --series-track: #184f95;
+  --btn-bg: #ffffff;
+  --btn-ink: #0b0b0b;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--page);
+  color: var(--ink);
+  font-size: 15px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+button, select { font: inherit; color: inherit; }
+.num { direction: ltr; unicode-bidi: isolate; }
+.muted { color: var(--muted); }
+.ink2 { color: var(--ink-2); }
+[hidden] { display: none !important; }
+
+/* ---------------------------------------------------------------- top bar */
+.topbar {
+  position: sticky; top: 0; z-index: 10;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+  padding: 12px 24px;
+  background: color-mix(in srgb, var(--page) 88%, transparent);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--border);
+}
+.brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.brand svg { flex: none; }
+.brand strong { display: block; font-size: 17px; letter-spacing: 0.06em; }
+.brand span { display: block; font-size: 12.5px; color: var(--ink-2); }
+.actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  height: 36px; padding: 0 14px; border-radius: 10px;
+  border: 1px solid var(--border); background: var(--surface); cursor: pointer;
+  font-size: 14px; font-weight: 500; white-space: nowrap;
+}
+.btn:hover { background: var(--hover); }
+.btn:focus-visible, select:focus-visible { outline: 2px solid var(--series); outline-offset: 2px; }
+.btn.primary { background: var(--btn-bg); color: var(--btn-ink); border-color: transparent; }
+.btn.primary:hover { opacity: 0.88; }
+.btn.icon { width: 36px; padding: 0; }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.pill {
+  display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 12px;
+  border-radius: 999px; border: 1px solid var(--border); font-size: 13.5px; color: var(--ink-2);
+}
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex: none; }
+.dot.good { background: var(--good); }
+.dot.warning { background: var(--warning); }
+.dot.serious { background: var(--serious); }
+.dot.pulse { animation: pulse 1.2s ease-in-out infinite; }
+@keyframes pulse { 50% { opacity: 0.3; } }
+
+/* ----------------------------------------------------------------- layout */
+main { max-width: 1280px; margin: 0 auto; padding: 20px 24px 56px; }
+.row { display: grid; gap: 16px; margin-bottom: 16px; }
+.row.hero { grid-template-columns: minmax(0, 1.65fr) minmax(0, 1fr); }
+.row.two { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.row.tiles { grid-template-columns: repeat(auto-fit, minmax(178px, 1fr)); }
+@media (max-width: 960px) { .row.hero, .row.two { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 640px) {
+  .topbar { padding: 10px 16px; position: static; }
+  .btn { padding: 0 12px; }
+  main { padding: 16px 16px 48px; }
+  .brand span { display: none; }
+}
+.card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 18px 20px; min-width: 0;
+}
+.card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.card-head h2 { margin: 0; font-size: 15px; font-weight: 600; }
+.card-head p { margin: 2px 0 0; font-size: 13px; color: var(--ink-2); }
+.seg { display: inline-flex; border: 1px solid var(--border); border-radius: 9px; padding: 2px; gap: 2px; flex: none; }
+.seg button {
+  border: 0; background: transparent; height: 28px; padding: 0 10px; border-radius: 7px;
+  cursor: pointer; font-size: 13px; color: var(--ink-2);
+}
+.seg button:hover { background: var(--hover); }
+.seg button[aria-pressed="true"] { background: var(--btn-bg); color: var(--btn-ink); }
+.toolbar { display: flex; align-items: center; gap: 12px; margin: 4px 0 12px; flex-wrap: wrap; }
+.toolbar label { font-size: 13.5px; color: var(--ink-2); }
+
+/* ------------------------------------------------------------ empty state */
+.empty { max-width: 720px; margin: 48px auto; text-align: start; }
+.empty h1 { font-size: 24px; margin: 0 0 6px; }
+.empty ol { padding-inline-start: 22px; margin: 16px 0; }
+.empty li { margin-bottom: 8px; }
+.empty .actions { margin-top: 18px; }
+.note { font-size: 13.5px; color: var(--ink-2); }
+
+/* -------------------------------------------------------------------- hero */
+.status-chip {
+  display: inline-flex; align-items: center; gap: 8px; height: 32px; padding: 0 12px 0 6px;
+  border-radius: 999px; font-weight: 600; font-size: 14px;
+  background: color-mix(in srgb, var(--st, var(--muted)) 16%, transparent);
+}
+[dir="rtl"] .status-chip { padding: 0 6px 0 12px; }
+.status-chip .ic {
+  width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center;
+  background: var(--st, var(--muted)); color: var(--st-ink, #fff); font-size: 13px; font-weight: 700;
+}
+.hero-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.hero-desc { margin: 10px 0 0; color: var(--ink-2); }
+.hero-figure { display: flex; align-items: baseline; gap: 10px; margin: 18px 0 4px; flex-wrap: wrap; }
+.hero-figure .big { font-size: clamp(48px, 7vw, 68px); font-weight: 600; line-height: 1; letter-spacing: -0.02em; }
+.hero-figure .unit { font-size: 18px; color: var(--ink-2); }
+.hero-label { font-size: 13.5px; color: var(--ink-2); }
+.state-tag { font-size: 13px; color: var(--ink-2); display: inline-flex; align-items: center; gap: 6px; }
+.zonebar { position: relative; margin: 22px 0 28px; }
+.zonebar .track { display: flex; gap: 2px; height: 10px; }
+.zonebar .seg-z { height: 100%; border-radius: 3px; background: color-mix(in srgb, var(--st) 45%, transparent); }
+.zonebar .seg-z.active { background: var(--st); }
+.zonebar .marker {
+  position: absolute; top: -5px; width: 4px; height: 20px; margin-inline-start: -2px;
+  border-radius: 2px; background: var(--ink); box-shadow: 0 0 0 2px var(--surface);
+  transition: inset-inline-start 0.4s ease;
+}
+.zonebar .tick { position: absolute; top: 16px; transform: translateX(50%); font-size: 11.5px; color: var(--muted); }
+[dir="ltr"] .zonebar .tick { transform: translateX(-50%); }
+.zonebar .zl { position: absolute; top: -20px; font-size: 11.5px; color: var(--ink-2); transform: translateX(50%); }
+[dir="ltr"] .zonebar .zl { transform: translateX(-50%); }
+.class-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 13.5px; color: var(--ink-2); }
+select {
+  height: 34px; border-radius: 9px; border: 1px solid var(--border); background: var(--surface);
+  padding: 0 10px; font-size: 13.5px; max-width: 100%;
+}
+
+.freq .big { font-size: 44px; font-weight: 600; line-height: 1.05; }
+.freq .unit { font-size: 16px; color: var(--ink-2); margin-inline-start: 6px; }
+.freq .sub { margin-top: 8px; color: var(--ink-2); font-size: 14px; }
+.freq dl { display: grid; grid-template-columns: auto 1fr; gap: 6px 16px; margin: 18px 0 0; font-size: 13.5px; }
+.freq dt { color: var(--ink-2); }
+.freq dd { margin: 0; font-weight: 500; }
+
+/* ------------------------------------------------------------------- tiles */
+.tile { display: flex; flex-direction: column; gap: 4px; }
+.tile .label { font-size: 13px; color: var(--ink-2); }
+.tile .value { font-size: 28px; font-weight: 600; line-height: 1.15; }
+.tile .value .unit { font-size: 14px; font-weight: 400; color: var(--ink-2); margin-inline-start: 4px; }
+.tile .sub { font-size: 12.5px; color: var(--ink-2); min-height: 19px; }
+.tile.off .value { font-size: 16px; font-weight: 500; color: var(--muted); padding: 6px 0 3px; }
+.tile svg.spark { display: block; width: 100%; height: 30px; margin-top: 6px; }
+.meter { height: 8px; border-radius: 4px; background: var(--series-track); overflow: hidden; margin-top: 10px; }
+.meter > div { height: 100%; background: var(--series); border-radius: 4px; transition: width 0.4s ease; }
+
+/* ------------------------------------------------------------------ charts */
+.chart { position: relative; direction: ltr; }
+.chart svg { display: block; width: 100%; overflow: visible; }
+.chart text { font-size: 11.5px; fill: var(--muted); font-variant-numeric: tabular-nums; }
+.chart .lbl { fill: var(--ink-2); font-size: 12px; }
+.chart .placeholder { height: 200px; display: grid; place-items: center; color: var(--muted); font-size: 14px; direction: rtl; }
+[dir="ltr"] .chart .placeholder { direction: ltr; }
+.tip {
+  position: fixed; z-index: 50; pointer-events: none; min-width: 120px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.14); padding: 8px 10px; font-size: 12.5px;
+}
+.tip .v { font-size: 15px; font-weight: 600; }
+.tip .k { display: inline-block; width: 12px; height: 2px; background: var(--series); vertical-align: middle; margin-inline-end: 6px; }
+.tip .s { color: var(--ink-2); }
+
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th, td { text-align: start; padding: 7px 8px; border-bottom: 1px solid var(--grid); }
+th { font-weight: 600; color: var(--ink-2); font-size: 12.5px; position: sticky; top: 0; background: var(--surface); }
+td { font-variant-numeric: tabular-nums; }
+.table-wrap { max-height: 280px; overflow: auto; }
+
+/* ------------------------------------------------------------ events/info */
+.events { list-style: none; margin: 0; padding: 0; max-height: 300px; overflow: auto; }
+.events li { display: flex; align-items: flex-start; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--grid); font-size: 13.5px; }
+.events li:last-child { border-bottom: 0; }
+.events .ic {
+  width: 20px; height: 20px; border-radius: 50%; flex: none; display: grid; place-items: center;
+  font-size: 11px; font-weight: 700; background: var(--st, var(--muted)); color: var(--st-ink, #fff); margin-top: 1px;
+}
+.events time { color: var(--muted); font-size: 12.5px; margin-inline-start: auto; white-space: nowrap; }
+.info { display: grid; grid-template-columns: auto 1fr; gap: 7px 16px; margin: 0; font-size: 13.5px; }
+.info dt { color: var(--ink-2); }
+.info dd { margin: 0; word-break: break-word; }
+.sensors { display: flex; flex-wrap: wrap; gap: 6px; }
+.sensor { font-size: 12.5px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--border); display: inline-flex; gap: 5px; align-items: center; }
+.sensor .dot { width: 7px; height: 7px; }
+.card-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; }
+
+.stale main .live { opacity: 0.55; transition: opacity 0.3s; }
+.toast {
+  position: fixed; bottom: 20px; inset-inline-start: 50%; transform: translateX(50%); z-index: 60;
+  background: var(--btn-bg); color: var(--btn-ink); padding: 10px 16px; border-radius: 10px;
+  font-size: 14px; max-width: min(92vw, 520px); box-shadow: 0 8px 28px rgba(0, 0, 0, 0.25);
+}
+[dir="ltr"] .toast { transform: translateX(-50%); }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <svg width="34" height="34" viewBox="0 0 34 34" aria-hidden="true">
+      <rect x="1" y="1" width="32" height="32" rx="9" fill="var(--btn-bg)"/>
+      <path d="M7 19.5h4l2.5-7 4 13 3-9 2 3H27" fill="none" stroke="var(--btn-ink)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <div>
+      <strong>MANTIS</strong>
+      <span data-i18n="subtitle"></span>
+    </div>
+  </div>
+  <div class="actions">
+    <span class="pill" id="connPill" role="status"><span class="dot" id="connDot"></span><span id="connText"></span></span>
+    <button class="btn primary" id="btnBle" data-i18n="connect_ble"></button>
+    <button class="btn" id="btnUsb" data-i18n="connect_usb"></button>
+    <button class="btn" id="btnDemo" data-i18n="demo"></button>
+    <button class="btn" id="btnDisconnect" data-i18n="disconnect" hidden></button>
+    <button class="btn icon" id="btnLang" aria-label="Language">EN</button>
+    <button class="btn icon" id="btnTheme" data-i18n-title="theme">
+      <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><circle cx="9" cy="9" r="7" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M9 2a7 7 0 0 1 0 14z" fill="currentColor"/></svg>
+    </button>
+  </div>
+</header>
+
+<main>
+  <section class="empty card" id="emptyState">
+    <h1 data-i18n="empty_title"></h1>
+    <p class="ink2" data-i18n="empty_intro"></p>
+    <ol>
+      <li data-i18n="empty_step1"></li>
+      <li data-i18n="empty_step2"></li>
+      <li data-i18n="empty_step3"></li>
+    </ol>
+    <p class="note" data-i18n="empty_alt"></p>
+    <p class="note" id="browserNote"></p>
+    <div class="actions">
+      <button class="btn primary" data-act="ble" data-i18n="connect_ble"></button>
+      <button class="btn" data-act="usb" data-i18n="connect_usb"></button>
+      <button class="btn" data-act="demo" data-i18n="demo"></button>
+    </div>
+  </section>
+
+  <div id="dash" hidden>
+    <div class="row hero live">
+      <article class="card" aria-labelledby="hCond">
+        <div class="card-head"><div><h2 id="hCond" data-i18n="machine_condition"></h2></div><span class="state-tag" id="runState"></span></div>
+        <div class="hero-top" id="zoneChip"></div>
+        <p class="hero-desc" id="zoneDesc"></p>
+        <div class="hero-figure"><span class="big num" id="velValue">—</span><span class="unit" id="velUnit"></span></div>
+        <div class="hero-label" data-i18n="vel_label"></div>
+        <div class="zonebar" id="zoneBar" aria-hidden="true"></div>
+        <div class="class-row">
+          <label for="isoClass" data-i18n="iso_class"></label>
+          <select id="isoClass"></select>
+        </div>
+      </article>
+      <article class="card freq" aria-labelledby="hFreq">
+        <div class="card-head"><div><h2 id="hFreq" data-i18n="dom_freq"></h2></div></div>
+        <div id="freqBody"></div>
+      </article>
+    </div>
+
+    <div class="row tiles live" id="tiles"></div>
+
+    <div class="toolbar">
+      <label data-i18n="range"></label>
+      <div class="seg" id="rangeSeg" role="group"></div>
+    </div>
+
+    <div class="row two live">
+      <article class="card" aria-labelledby="hSpec">
+        <div class="card-head">
+          <div><h2 id="hSpec" data-i18n="spectrum"></h2><p id="specSub"></p></div>
+          <div class="seg" data-view="spec"><button data-v="chart" data-i18n="chart"></button><button data-v="table" data-i18n="table"></button></div>
+        </div>
+        <div class="chart" id="specChart"></div>
+        <div class="table-wrap" id="specTable" hidden></div>
+      </article>
+      <article class="card" aria-labelledby="hTrend">
+        <div class="card-head">
+          <div><h2 id="hTrend" data-i18n="trend"></h2><p id="trendSub"></p></div>
+          <div class="seg" data-view="trend"><button data-v="chart" data-i18n="chart"></button><button data-v="table" data-i18n="table"></button></div>
+        </div>
+        <div class="chart" id="trendChart"></div>
+        <div class="table-wrap" id="trendTable" hidden></div>
+      </article>
+    </div>
+
+    <div class="row two">
+      <article class="card" aria-labelledby="hEvents">
+        <div class="card-head"><div><h2 id="hEvents" data-i18n="events"></h2></div></div>
+        <ul class="events" id="events" aria-live="polite"></ul>
+      </article>
+      <article class="card" aria-labelledby="hDev">
+        <div class="card-head"><div><h2 id="hDev" data-i18n="device"></h2></div></div>
+        <dl class="info" id="info"></dl>
+        <div class="card-actions">
+          <button class="btn" id="btnIdentify" data-i18n="identify"></button>
+          <button class="btn" id="btnExport" data-i18n="export"></button>
+          <button class="btn" id="btnClear" data-i18n="clear"></button>
+        </div>
+      </article>
+    </div>
+  </div>
+</main>
+<div class="tip" id="tip" hidden></div>
+<div class="toast" id="toast" role="alert" hidden></div>
+
+<script>
+'use strict';
+
+// ------------------------------------------------------------ protocol ---
+const SVC = '4d414e54-4953-4e53-5045-435400000000';
+const CHR = {
+  vib:  '4d414e54-4953-4e53-5045-435400000001',
+  env:  '4d414e54-4953-4e53-5045-435400000002',
+  spec: '4d414e54-4953-4e53-5045-435400000003',
+  ctrl: '4d414e54-4953-4e53-5045-435400000004',
+  info: '4d414e54-4953-4e53-5045-435400000005',
+};
+const NFFT = 1024, K0 = 11, BW = 7, BANDS = 64;
+// ISO 10816-1 zone limits A/B, B/C, C/D (mm/s RMS) - same table as the firmware
+const ISO = { 1: [0.71, 1.8, 4.5], 2: [1.12, 2.8, 7.1], 3: [1.8, 4.5, 11.2], 4: [2.8, 7.1, 18] };
+const RUNNING_MM_S = 0.3;     // below this the machine is treated as stopped/quiet
+const DOMINANT_MIN = 0.05;    // mm/s - a weaker peak is just sensor noise
+const IR_LIMIT = 70;          // C - surface temperature alert
+const MAX_READINGS = 4000;    // ~70 min at one reading per 1.1 s
+const STATUS = {
+  1: { key: 'A', st: 'good', icon: '✓' },
+  2: { key: 'B', st: 'good', icon: '✓' },
+  3: { key: 'C', st: 'warning', icon: '!' },
+  4: { key: 'D', st: 'critical', icon: '✕' },
+};
+
+// ---------------------------------------------------------------- i18n ---
+const I18N = {
+  ar: {
+    subtitle: 'نظام الفحص الفني متعدد الحساسات',
+    connect_ble: 'اتصال بلوتوث', connect_usb: 'اتصال USB', demo: 'عرض تجريبي', disconnect: 'قطع الاتصال', theme: 'المظهر',
+    st_off: 'غير متصل', st_connecting: 'جارٍ الاتصال…', st_reconnecting: 'إعادة الاتصال…',
+    st_ble: 'متصل عبر البلوتوث', st_usb: 'متصل عبر USB', st_demo: 'عرض تجريبي', st_stale: 'لا توجد بيانات حديثة',
+    empty_title: 'وصّل جهاز MANTIS لبدء الفحص',
+    empty_intro: 'الواجهة تعرض حالة الآلة مباشرة: الاهتزاز، الحرارة، والصوت.',
+    empty_step1: 'شغّل الجهاز. اللمبة تومض كل ثانية ونص يعني أنه جاهز للاتصال.',
+    empty_step2: 'اضغط «اتصال بلوتوث» واختر MANTIS من القائمة.',
+    empty_step3: 'ثبّت الجهاز على سطح الآلة (المغناطيس للأسفل) وتظهر القراءات خلال ثانية.',
+    empty_alt: 'الجهاز موصول بالكمبيوتر بسلك؟ استخدم «اتصال USB». تبي تشوف الواجهة بدون جهاز؟ جرّب «عرض تجريبي».',
+    browser_ok: 'يعمل على Chrome أو Edge (كمبيوتر أو أندرويد).',
+    machine_condition: 'حالة الآلة', vel_label: 'سرعة الاهتزاز (RMS، من 10 هرتز فما فوق)',
+    zone: 'المنطقة',
+    zoneA_t: 'جيد', zoneA_d: 'مستوى اهتزاز آلة جديدة أو بحالة ممتازة.',
+    zoneB_t: 'مقبول', zoneB_d: 'مناسب للتشغيل المستمر بدون قيود.',
+    zoneC_t: 'يحتاج انتباه', zoneC_d: 'غير مرضٍ للتشغيل الطويل. خطط لصيانة قريبة.',
+    zoneD_t: 'خطر', zoneD_d: 'اهتزاز قد يسبب تلفاً. أوقف الآلة وافحصها.',
+    no_data: 'بانتظار أول قراءة…',
+    running: 'الآلة تعمل', idle: 'متوقفة أو هادئة',
+    iso_class: 'فئة الآلة (ISO 10816)',
+    cls1: 'I: آلات صغيرة حتى 15 كيلوواط', cls2: 'II: متوسطة 15 إلى 75 كيلوواط',
+    cls3: 'III: كبيرة على قاعدة صلبة', cls4: 'IV: كبيرة على قاعدة مرنة',
+    dom_freq: 'التردد السائد',
+    rpm_equiv: 'يعادل {rpm} دورة/دقيقة إذا كان تردد الدوران',
+    peak_amp: 'شدة القمة', axis: 'المحور الأعلى', sample_rate: 'معدل العينات',
+    no_dom: 'لا يوجد تردد واضح', no_dom_sub: 'الاهتزاز أقل من حد القياس، غالباً الآلة متوقفة.',
+    acc: 'التسارع (RMS)', acc_sub: 'القمة {apk} · معامل القمة {crest}',
+    ir: 'حرارة السطح (IR)', ir_sub: 'المحيط {amb}', ir_missing: 'غير موصول', ir_hint: 'وصّل MLX90614 على A4/A5',
+    int_temp: 'حرارة داخل الجهاز', int_sub: 'الرطوبة {rh}',
+    pressure: 'الضغط الجوي', pressure_sub: 'داخل الجهاز',
+    sound: 'مستوى الصوت', sound_sub: 'نسبي (غير معاير)',
+    piezo: 'حساس التلامس (بيزو)', piezo_sub: 'الصدمات: {n} · RMS {rms}', piezo_off: 'غير مفعّل', piezo_hint: 'فعّله من PIEZO_ENABLED في الكود',
+    range: 'النطاق الزمني', r1: 'دقيقة', r5: '5 دقائق', r15: '15 دقيقة', r60: 'ساعة',
+    spectrum: 'طيف الاهتزاز', spectrum_sub: 'سرعة الاهتزاز حسب التردد، المحور {axis}',
+    trend: 'سرعة الاهتزاز عبر الوقت', trend_sub: 'مع حدود مناطق ISO للفئة {cls}',
+    chart: 'رسم', table: 'جدول',
+    events: 'التنبيهات والأحداث', no_events: 'لا توجد أحداث بعد.',
+    device: 'الجهاز', fw: 'البرنامج', board: 'اللوحة', conn: 'الاتصال', fs: 'معدل العينات',
+    uptime: 'مدة التشغيل', packets: 'القراءات المستلمة', last: 'آخر تحديث', sensors: 'الحساسات',
+    identify: 'تحديد الجهاز (وميض)', export: 'تصدير CSV', clear: 'مسح البيانات',
+    ev_zone: 'حالة الاهتزاز صارت «{zone}»', ev_conn: 'تم الاتصال ({src})', ev_disc: 'انقطع الاتصال',
+    ev_ir: 'حرارة السطح تجاوزت {lim}', ev_ir_ok: 'حرارة السطح رجعت تحت {lim}', ev_cls: 'تم تغيير فئة الآلة إلى {cls}',
+    ago: 'منذ {n} ث', ago_m: 'منذ {n} د',
+    col_band: 'النطاق', col_val: 'السرعة', col_time: 'الوقت', col_zone: 'المنطقة', col_acc: 'التسارع', col_f: 'التردد', col_ir: 'سطح', col_t: 'داخلي', col_snd: 'الصوت',
+    src_ble: 'بلوتوث', src_usb: 'USB', src_demo: 'تجريبي',
+    no_ble: 'متصفحك لا يدعم Web Bluetooth. استخدم Chrome أو Edge على الكمبيوتر أو أندرويد.',
+    no_ble_ios: 'متصفح Safari في الآيفون لا يدعم البلوتوث من صفحات الويب. حمّل تطبيق Bluefy من App Store وافتح الرابط منه.',
+    no_serial: 'متصفحك لا يدعم Web Serial. استخدم Chrome أو Edge على الكمبيوتر.',
+    ble_off: 'البلوتوث مقفل في الجهاز. شغّله من الإعدادات ثم حاول مرة ثانية.',
+    err_conn: 'تعذر الاتصال: {msg}', identify_sent: 'راقب لمبة الجهاز: بتومض أبيض 3 ثواني.',
+    exported: 'تم تصدير {n} قراءة', cleared: 'تم مسح البيانات', demo_note: 'هذه بيانات تجريبية وليست من جهاز حقيقي.',
+    u_mms: 'مم/ث', u_mg: 'mg', u_hz: 'هرتز', u_c: '°م', u_hpa: 'هكتوباسكال', u_db: 'dBFS', u_mv: 'مللي فولت', u_rpm: 'دورة/د',
+    s_imu: 'الاهتزاز', s_hts: 'الحرارة والرطوبة', s_lps: 'الضغط', s_mic: 'الميكروفون', s_mlx: 'حرارة IR', s_pz: 'البيزو',
+    on: 'يعمل', off: 'غير موصول',
+  },
+  en: {
+    subtitle: 'Multimodal technical inspection system',
+    connect_ble: 'Connect Bluetooth', connect_usb: 'Connect USB', demo: 'Demo', disconnect: 'Disconnect', theme: 'Theme',
+    st_off: 'Not connected', st_connecting: 'Connecting…', st_reconnecting: 'Reconnecting…',
+    st_ble: 'Connected via Bluetooth', st_usb: 'Connected via USB', st_demo: 'Demo mode', st_stale: 'No recent data',
+    empty_title: 'Connect a MANTIS device to start inspecting',
+    empty_intro: 'This dashboard shows the machine condition live: vibration, temperature and sound.',
+    empty_step1: 'Power the device. A short blink every 1.5 s means it is ready to connect.',
+    empty_step2: 'Press “Connect Bluetooth” and pick MANTIS from the list.',
+    empty_step3: 'Attach the device to the machine surface (magnets down); readings appear within a second.',
+    empty_alt: 'Device plugged in with a cable? Use “Connect USB”. Want to see the dashboard without a device? Try “Demo”.',
+    browser_ok: 'Works in Chrome or Edge (desktop or Android).',
+    machine_condition: 'Machine condition', vel_label: 'Vibration velocity (RMS, 10 Hz and up)',
+    zone: 'Zone',
+    zoneA_t: 'Good', zoneA_d: 'Vibration typical of a new machine in excellent condition.',
+    zoneB_t: 'Acceptable', zoneB_d: 'Fine for unrestricted long-term operation.',
+    zoneC_t: 'Needs attention', zoneC_d: 'Unsatisfactory for long-term operation. Plan maintenance soon.',
+    zoneD_t: 'Danger', zoneD_d: 'Vibration severe enough to cause damage. Stop and inspect the machine.',
+    no_data: 'Waiting for the first reading…',
+    running: 'Machine running', idle: 'Stopped or quiet',
+    iso_class: 'Machine class (ISO 10816)',
+    cls1: 'I: small machines up to 15 kW', cls2: 'II: medium, 15 to 75 kW',
+    cls3: 'III: large, rigid foundation', cls4: 'IV: large, flexible foundation',
+    dom_freq: 'Dominant frequency',
+    rpm_equiv: '{rpm} RPM if this is the running speed',
+    peak_amp: 'Peak level', axis: 'Strongest axis', sample_rate: 'Sample rate',
+    no_dom: 'No clear frequency', no_dom_sub: 'Vibration is below the measurement floor; the machine is probably stopped.',
+    acc: 'Acceleration (RMS)', acc_sub: 'Peak {apk} · crest factor {crest}',
+    ir: 'Surface temperature (IR)', ir_sub: 'Ambient {amb}', ir_missing: 'Not connected', ir_hint: 'Wire an MLX90614 to A4/A5',
+    int_temp: 'Temperature inside device', int_sub: 'Humidity {rh}',
+    pressure: 'Air pressure', pressure_sub: 'Inside the device',
+    sound: 'Sound level', sound_sub: 'Relative (uncalibrated)',
+    piezo: 'Contact sensor (piezo)', piezo_sub: 'Impacts: {n} · RMS {rms}', piezo_off: 'Disabled', piezo_hint: 'Enable PIEZO_ENABLED in the firmware',
+    range: 'Time range', r1: '1 min', r5: '5 min', r15: '15 min', r60: '1 hour',
+    spectrum: 'Vibration spectrum', spectrum_sub: 'Velocity by frequency, {axis} axis',
+    trend: 'Vibration velocity over time', trend_sub: 'With ISO zone limits for class {cls}',
+    chart: 'Chart', table: 'Table',
+    events: 'Alerts and events', no_events: 'No events yet.',
+    device: 'Device', fw: 'Firmware', board: 'Board', conn: 'Connection', fs: 'Sample rate',
+    uptime: 'Uptime', packets: 'Readings received', last: 'Last update', sensors: 'Sensors',
+    identify: 'Identify (blink)', export: 'Export CSV', clear: 'Clear data',
+    ev_zone: 'Vibration condition is now “{zone}”', ev_conn: 'Connected ({src})', ev_disc: 'Disconnected',
+    ev_ir: 'Surface temperature above {lim}', ev_ir_ok: 'Surface temperature back below {lim}', ev_cls: 'Machine class set to {cls}',
+    ago: '{n} s ago', ago_m: '{n} min ago',
+    col_band: 'Band', col_val: 'Velocity', col_time: 'Time', col_zone: 'Zone', col_acc: 'Accel.', col_f: 'Freq.', col_ir: 'Surface', col_t: 'Internal', col_snd: 'Sound',
+    src_ble: 'Bluetooth', src_usb: 'USB', src_demo: 'demo',
+    no_ble: 'This browser has no Web Bluetooth. Use Chrome or Edge on desktop or Android.',
+    no_ble_ios: 'Safari on iPhone cannot use Bluetooth from web pages. Install the Bluefy app from the App Store and open this link in it.',
+    no_serial: 'This browser has no Web Serial. Use Chrome or Edge on desktop.',
+    ble_off: 'Bluetooth is turned off on this computer. Turn it on and try again.',
+    err_conn: 'Could not connect: {msg}', identify_sent: 'Watch the device LED: it flashes white for 3 seconds.',
+    exported: 'Exported {n} readings', cleared: 'Data cleared', demo_note: 'This is simulated data, not from a real device.',
+    u_mms: 'mm/s', u_mg: 'mg', u_hz: 'Hz', u_c: '°C', u_hpa: 'hPa', u_db: 'dBFS', u_mv: 'mV', u_rpm: 'RPM',
+    s_imu: 'Vibration', s_hts: 'Temp & humidity', s_lps: 'Pressure', s_mic: 'Microphone', s_mlx: 'IR temp', s_pz: 'Piezo',
+    on: 'OK', off: 'Not connected',
+  },
+};
+
+// ------------------------------------------------------------- helpers ---
+const $ = (s) => document.querySelector(s);
+const store = {
+  get(k, d) { try { const v = localStorage.getItem('mantis.' + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem('mantis.' + k, JSON.stringify(v)); } catch (e) { /* private mode */ } },
+};
+function t(key, vars) {
+  let s = (I18N[state.lang] && I18N[state.lang][key]) || I18N.ar[key] || key;
+  if (vars) for (const k in vars) s = s.split('{' + k + '}').join(vars[k]);
+  return s;
+}
+function fmt(v, d) { return v == null || Number.isNaN(v) ? '—' : Number(v).toFixed(d); }
+function fmtInt(v) { return v == null || Number.isNaN(v) ? '—' : Math.round(v).toLocaleString('en-US'); }
+function h(tag, attrs, ...kids) {
+  const el = document.createElement(tag);
+  if (attrs) for (const k in attrs) {
+    if (k === 'class') el.className = attrs[k];
+    else if (k === 'style') el.style.cssText = attrs[k];
+    else el.setAttribute(k, attrs[k]);
+  }
+  for (const c of kids) if (c != null && c !== false) el.append(c.nodeType ? c : String(c));
+  return el;
+}
+function numEl(text, cls) { return h('span', { class: 'num' + (cls ? ' ' + cls : '') }, text); }
+function clock(ms) { return new Date(ms).toLocaleTimeString('en-GB', { hour12: false }); }
+function niceCeil(v) {
+  const p = Math.pow(10, Math.floor(Math.log10(v)));
+  for (const m of [1, 1.2, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10]) if (m * p >= v) return m * p;
+  return 10 * p;
+}
+function zoneOf(vel, cls) {
+  if (vel == null) return 0;
+  const l = ISO[cls || state.isoClass];
+  return vel < l[0] ? 1 : vel < l[1] ? 2 : vel < l[2] ? 3 : 4;
+}
+function zoneName(z) { return z ? t('zone') + ' ' + STATUS[z].key + ' · ' + t('zone' + STATUS[z].key + '_t') : '—'; }
+function decodeBand(code) { return code === 0 ? 0 : 0.001 * Math.pow(10, code / 40); }
+function decodeSens(m) {
+  return { imu: !!(m & 4), hts: !!(m & 1), lps: !!(m & 2), mic: !!(m & 8), mlx: !!(m & 16), pz: !!(m & 32) };
+}
+function setStatusVars(el, st) {
+  el.style.setProperty('--st', 'var(--' + st + ')');
+  el.style.setProperty('--st-ink', st === 'warning' ? '#0b0b0b' : '#ffffff');
+}
+
+// --------------------------------------------------------------- state ---
+const state = {
+  lang: store.get('lang', 'ar'),
+  theme: store.get('theme', 'auto'),
+  isoClass: store.get('cls', 2),
+  rangeMin: store.get('range', 5),
+  view: { spec: 'chart', trend: 'chart' },
+  source: null,          // 'ble' | 'usb' | 'demo'
+  conn: 'off',           // off | connecting | reconnecting | live
+  readings: [],
+  events: [],
+  spectrum: null,        // { bands: [mm/s], fs, axis }
+  info: {},
+  packets: 0,
+  lastRx: 0,
+  fs: null,
+  reportedZone: 0, zoneCand: 0, zoneCandN: 0, irHigh: false,
+  ble: null, serial: null, demoTimer: null,
+  pendingVib: null, specChunks: { seq: -1, parts: [], n: 0 },
+  hover: { trend: null, spec: null },
+};
+
+// ---------------------------------------------------------- ingestion ---
+function ingest(r) {
+  if (!r.time) r.time = Date.now();
+  if (r.vel === undefined) r.vel = null;
+  r.crest = r.arms > 0 && r.apk != null ? r.apk / r.arms : null;
+  state.readings.push(r);
+  if (state.readings.length > MAX_READINGS) state.readings.splice(0, state.readings.length - MAX_READINGS);
+
+  if (!r.backfill) {
+    state.lastRx = Date.now();
+    state.packets++;
+    // zone change events need 3 readings in a row, so a value sitting on a limit doesn't flap
+    const z = zoneOf(r.vel);
+    if (z && z !== state.reportedZone) {
+      state.zoneCandN = z === state.zoneCand ? state.zoneCandN + 1 : 1;
+      state.zoneCand = z;
+      if (state.zoneCandN >= 3 || !state.reportedZone) {
+        if (state.reportedZone) addEvent(STATUS[z].st, STATUS[z].icon, 'ev_zone', { zoneKey: z });
+        state.reportedZone = z;
+      }
+    } else {
+      state.zoneCandN = 0;
+    }
+    if (r.ir != null) {
+      if (!state.irHigh && r.ir > IR_LIMIT) { state.irHigh = true; addEvent('critical', '!', 'ev_ir', { lim: IR_LIMIT + ' ' + t('u_c') }); }
+      else if (state.irHigh && r.ir < IR_LIMIT - 2) { state.irHigh = false; addEvent('good', '✓', 'ev_ir_ok', { lim: IR_LIMIT + ' ' + t('u_c') }); }
+    }
+  }
+  scheduleRender();
+}
+
+function addEvent(st, icon, key, vars) {
+  state.events.unshift({ time: Date.now(), st, icon, key, vars: vars || {} });
+  if (state.events.length > 200) state.events.length = 200;
+  scheduleRender();
+}
+
+// ------------------------------------------------------- BLE transport ---
+function decodeVib(dv) {
+  const u = (o) => dv.getUint16(o, true);
+  const opt = (v, s) => (v === 0xFFFF ? null : v / s);
+  return {
+    seq: u(0), vel: opt(u(2), 100), arms: opt(u(4), 1), apk: opt(u(6), 1), f: opt(u(8), 10), fv: opt(u(10), 100),
+    pzp: opt(u(12), 1), pzr: opt(u(14), 1), pzi: opt(u(16), 1),
+    zone: dv.getUint8(18), overrun: !!(dv.getUint8(19) & 1), axis: (dv.getUint8(19) >> 1) & 3,
+  };
+}
+function decodeEnv(dv) {
+  const i = (o, s) => { const v = dv.getInt16(o, true); return v === 0x7FFF ? null : v / s; };
+  const u = (o, s) => { const v = dv.getUint16(o, true); return v === 0xFFFF ? null : v / s; };
+  return {
+    seq: dv.getUint16(0, true), t: i(2, 100), rh: u(4, 100), p: u(6, 10), ir: i(8, 100), ira: i(10, 100),
+    snd: i(12, 10), up: dv.getUint32(14, true), sens: decodeSens(dv.getUint8(18)), cls: dv.getUint8(19),
+  };
+}
+function onBleVib(e) { state.pendingVib = decodeVib(e.target.value); }
+function onBleEnv(e) {
+  const env = decodeEnv(e.target.value);
+  const vib = state.pendingVib && state.pendingVib.seq === env.seq ? state.pendingVib : {};
+  ingest(Object.assign({}, vib, env));
+}
+function onBleSpec(e) {
+  const dv = e.target.value;
+  const seq = dv.getUint8(0), idx = dv.getUint8(1);
+  let c = state.specChunks;
+  if (c.seq !== seq) c = state.specChunks = { seq, parts: [], n: 0 };
+  if (idx < 4 && !c.parts[idx]) {
+    c.parts[idx] = Array.from(new Uint8Array(dv.buffer, dv.byteOffset + 4, 16));
+    c.n++;
+  }
+  if (c.n === 4) {
+    const fs = dv.getUint16(2, true) / 10;
+    state.fs = fs;
+    const last = state.readings[state.readings.length - 1];
+    state.spectrum = { bands: c.parts.flat().map(decodeBand), fs, axis: last ? last.axis : null, f: last ? last.f : null, fv: last ? last.fv : null };
+    c.n = 5;
+    scheduleRender();
+  }
+}
+
+async function connectBle() {
+  if (!navigator.bluetooth) return toast(t('no_ble'));
+  try {
+    if (navigator.bluetooth.getAvailability && !(await navigator.bluetooth.getAvailability())) return toast(t('ble_off'));
+    const device = await navigator.bluetooth.requestDevice({
+      filters: [{ services: [SVC] }, { name: 'MANTIS' }],
+      optionalServices: [SVC],
+    });
+    await stopSource();
+    state.ble = { device, ctrl: null, userClosed: false, retries: 0 };
+    device.addEventListener('gattserverdisconnected', onBleGone);
+    await bleAttach();
+  } catch (err) {
+    if (err && err.name === 'NotFoundError') return; // chooser cancelled
+    setConn(state.source ? 'live' : 'off');
+    toast(t('err_conn', { msg: err && err.message ? err.message : err }));
+  }
+}
+
+// GATT calls run one at a time: Chrome rejects overlapping operations
+async function bleAttach() {
+  const b = state.ble;
+  setConn(b.retries ? 'reconnecting' : 'connecting');
+  const server = await b.device.gatt.connect();
+  const svc = await server.getPrimaryService(SVC);
+  const vib = await svc.getCharacteristic(CHR.vib);
+  const env = await svc.getCharacteristic(CHR.env);
+  const spec = await svc.getCharacteristic(CHR.spec);
+  b.ctrl = await svc.getCharacteristic(CHR.ctrl);
+  try {
+    const info = await svc.getCharacteristic(CHR.info);
+    parseInfo(new TextDecoder().decode(await info.readValue()));
+  } catch (e) { /* optional */ }
+  vib.oncharacteristicvaluechanged = onBleVib;
+  env.oncharacteristicvaluechanged = onBleEnv;
+  spec.oncharacteristicvaluechanged = onBleSpec;
+  await vib.startNotifications();
+  await env.startNotifications();
+  await spec.startNotifications();
+  await sendCommand([1, state.isoClass]);
+  if (!b.retries) addEvent('good', '✓', 'ev_conn', { srcKey: 'ble' });
+  b.retries = 0;
+  state.source = 'ble';
+  setConn('live');
+}
+
+async function onBleGone() {
+  const b = state.ble;
+  if (!b || b.userClosed) return;
+  if (b.retries === 0) addEvent('serious', '!', 'ev_disc');
+  // keep trying while the device is in range: 1, 2, 4 ... 10 s
+  while (state.ble === b && !b.userClosed && b.retries < 30) {
+    b.retries++;
+    setConn('reconnecting');
+    await new Promise((r) => setTimeout(r, Math.min(10000, 1000 * Math.pow(2, Math.min(b.retries - 1, 4)))));
+    if (state.ble !== b || b.userClosed) return;
+    try { await bleAttach(); return; } catch (e) { /* retry */ }
+  }
+  if (state.ble === b) { state.ble = null; state.source = null; setConn('off'); }
+}
+
+function parseInfo(s) {
+  for (const part of s.split(';')) {
+    const i = part.indexOf('=');
+    if (i > 0) state.info[part.slice(0, i).trim()] = part.slice(i + 1).trim();
+  }
+  scheduleRender();
+}
+
+// ---------------------------------------------------- USB (Web Serial) ---
+async function connectUsb() {
+  if (!navigator.serial) return toast(t('no_serial'));
+  try {
+    const port = await navigator.serial.requestPort({ filters: [{ usbVendorId: 0x2341 }] });
+    await stopSource();
+    setConn('connecting');
+    await port.open({ baudRate: 115200 });
+    await port.setSignals({ dataTerminalReady: true, requestToSend: true });  // mbed USB serial needs DTR
+    state.serial = { port, reader: null, closed: null };
+    state.source = 'usb';
+    addEvent('good', '✓', 'ev_conn', { srcKey: 'usb' });
+    setConn('live');
+    sendCommand([1, state.isoClass]);
+    serialLoop(state.serial);
+  } catch (err) {
+    if (err && err.name === 'NotFoundError') return;
+    setConn(state.source ? 'live' : 'off');
+    toast(t('err_conn', { msg: err && err.message ? err.message : err }));
+  }
+}
+
+async function serialLoop(s) {
+  const decoder = new TextDecoderStream();
+  s.closed = s.port.readable.pipeTo(decoder.writable).catch(() => {});
+  const reader = decoder.readable.getReader();
+  s.reader = reader;
+  let buf = '';
+  try {
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buf += value;
+      let nl;
+      while ((nl = buf.indexOf('\n')) >= 0) {
+        const line = buf.slice(0, nl).trim();
+        buf = buf.slice(nl + 1);
+        if (line.startsWith('{')) {
+          try { onJson(JSON.parse(line)); } catch (e) { /* partial line */ }
+        } else if (line.startsWith('# MANTIS fw')) {
+          const m = line.match(/fw (\S+) - (.+)$/);
+          if (m) { state.info.fw = m[1]; state.info.board = m[2]; }
+        }
+      }
+    }
+  } catch (e) {
+    /* device unplugged */
+  } finally {
+    reader.releaseLock();
+  }
+  if (state.serial === s && !s.userClosed) {
+    addEvent('serious', '!', 'ev_disc');
+    try { await s.port.close(); } catch (e) { /* already closed */ }
+    state.serial = null; state.source = null; setConn('off');
+  }
+}
+
+function onJson(o) {
+  if (o.fs) state.fs = o.fs;
+  const r = {
+    seq: o.seq, vel: o.vel, arms: o.arms, apk: o.apk, f: o.f, fv: o.fv, axis: o.axis, zone: o.zone,
+    t: o.t, rh: o.rh, p: o.p, ir: o.ir, ira: o.ira, snd: o.snd, pzp: o.pzp, pzr: o.pzr, pzi: o.pzi,
+    up: o.up, cls: o.cls, sens: decodeSens(o.sens | 0), overrun: false,
+  };
+  if (Array.isArray(o.spec)) state.spectrum = { bands: o.spec.map(decodeBand), fs: o.fs, axis: o.axis, f: o.f, fv: o.fv };
+  ingest(r);
+}
+
+// --------------------------------------------------------------- demo ---
+// Simulated motor at 1488 RPM: 1x/2x/3x running-speed peaks plus 100 Hz
+// electrical, drifting slowly and rising into zone C once every 90 s
+function demoReading(tSec, seq, time) {
+  const fs = 928.4, df = fs / NFFT;
+  const phase = tSec % 90;
+  const surge = phase > 55 && phase < 85 ? Math.sin(((phase - 55) / 30) * Math.PI) : 0;
+  const rnd = () => Math.random() - 0.5;
+  const f1 = 24.8 + rnd() * 0.12;
+  const vel = Math.max(0.05, 1.5 + 0.25 * Math.sin(tSec / 23) + rnd() * 0.1 + surge * 2.2);
+  const peaks = [[f1, 0.82], [2 * f1, 0.42 + surge * 0.35], [3 * f1, 0.18], [100, 0.12], [4 * f1, 0.07]];
+  const bands = [];
+  let sum = 0;
+  for (let b = 0; b < BANDS; b++) {
+    const lo = (K0 + BW * b) * df, hi = (K0 + BW * (b + 1)) * df, fc = (lo + hi) / 2;
+    let e = Math.pow(0.012 * (30 / fc) * (0.7 + Math.random() * 0.6), 2);
+    for (const [pf, a] of peaks) if (pf >= lo - df && pf < hi + df) e += Math.pow(a * (pf >= lo && pf < hi ? 1 : 0.18), 2);
+    bands.push(e);
+    sum += e;
+  }
+  const k = vel / Math.sqrt(sum);
+  const spec = bands.map((e) => Math.sqrt(e) * k);
+  const arms = vel * 19 + 2 + rnd();
+  return {
+    r: {
+      time, seq, vel, arms, apk: arms * (3.0 + Math.random() * 0.4), f: f1, fv: vel * 0.78, axis: 2,
+      t: 31.2 + 0.4 * Math.sin(tSec / 200) + rnd() * 0.05, rh: 29.4 + rnd() * 0.2, p: 943.6 + rnd() * 0.1,
+      ir: 46.5 + surge * 6 + 1.2 * Math.sin(tSec / 140) + rnd() * 0.1, ira: 33.1 + rnd() * 0.05,
+      snd: -39 + surge * 5 + rnd() * 1.2, pzp: null, pzr: null, pzi: null, up: Math.round(tSec), cls: state.isoClass,
+      sens: decodeSens(0x1F), overrun: false,
+    },
+    spectrum: { bands: spec, fs, axis: 2, f: f1, fv: vel * 0.78 },
+  };
+}
+
+async function startDemo() {
+  await stopSource();
+  state.source = 'demo';
+  state.info = { fw: 'demo', board: 'simulated' };
+  state.fs = 928.4;
+  const start = Date.now();
+  let seq = 0;
+  // three minutes of history so the timeline has something to show
+  for (let i = 165; i > 0; i--) {
+    const d = demoReading(400 - i * 1.1, ++seq, start - i * 1100);
+    d.r.backfill = true;
+    ingest(d.r);
+  }
+  state.reportedZone = zoneOf(state.readings[state.readings.length - 1].vel);
+  addEvent('good', '✓', 'ev_conn', { srcKey: 'demo' });
+  toast(t('demo_note'));
+  setConn('live');
+  const t0 = 400;
+  state.demoTimer = setInterval(() => {
+    const d = demoReading(t0 + (Date.now() - start) / 1000, ++seq);
+    state.spectrum = d.spectrum;
+    ingest(d.r);
+  }, 1100);
+}
+
+// -------------------------------------------------- commands / control ---
+async function sendCommand(bytes) {
+  try {
+    if (state.source === 'ble' || (state.ble && state.ble.ctrl)) {
+      await state.ble.ctrl.writeValueWithResponse(new Uint8Array(bytes));
+    } else if (state.serial) {
+      const text = bytes[0] === 1 ? 'C' + bytes[1] + '\n' : 'I\n';
+      const w = state.serial.port.writable.getWriter();
+      await w.write(new TextEncoder().encode(text));
+      w.releaseLock();
+    }
+  } catch (e) { /* best effort */ }
+}
+
+async function stopSource() {
+  if (state.demoTimer) { clearInterval(state.demoTimer); state.demoTimer = null; }
+  if (state.ble) {
+    const b = state.ble;
+    b.userClosed = true;
+    state.ble = null;
+    try { if (b.device.gatt.connected) b.device.gatt.disconnect(); } catch (e) { /* gone */ }
+  }
+  if (state.serial) {
+    const s = state.serial;
+    s.userClosed = true;
+    state.serial = null;
+    try { if (s.reader) await s.reader.cancel(); } catch (e) { /* closed */ }
+    try { await s.closed; } catch (e) { /* closed */ }
+    try { await s.port.close(); } catch (e) { /* closed */ }
+  }
+  const wasDemo = state.source === 'demo';
+  state.source = null;
+  if (wasDemo) { state.readings = []; state.events = []; state.spectrum = null; state.packets = 0; state.info = {}; state.reportedZone = 0; }
+  setConn('off');
+}
+
+// ------------------------------------------------------------- render ---
+let renderQueued = false;
+function scheduleRender() {
+  if (renderQueued) return;
+  renderQueued = true;
+  requestAnimationFrame(() => { renderQueued = false; render(); });
+}
+
+function setConn(c) {
+  state.conn = c;
+  scheduleRender();
+}
+
+function renderConn() {
+  const stale = state.source && state.source !== 'demo' && state.conn === 'live' && Date.now() - state.lastRx > 5000;
+  document.body.classList.toggle('stale', !!stale);
+  const dot = $('#connDot');
+  dot.className = 'dot';
+  let text;
+  if (state.conn === 'connecting' || state.conn === 'reconnecting') {
+    dot.classList.add('warning', 'pulse');
+    text = t('st_' + state.conn);
+  } else if (state.conn === 'live' && state.source) {
+    dot.classList.add(stale ? 'serious' : 'good');
+    text = stale ? t('st_stale') : t('st_' + state.source);
+  } else {
+    text = t('st_off');
+  }
+  $('#connText').textContent = text;
+  const connected = !!state.source || state.conn === 'reconnecting';
+  // the welcome card carries its own connect buttons
+  const welcome = !state.readings.length && !state.source;
+  for (const id of ['#btnBle', '#btnUsb', '#btnDemo']) $(id).hidden = connected || welcome;
+  if (!navigator.serial) $('#btnUsb').hidden = true;  // phones: no Web Serial
+  $('#btnDisconnect').hidden = !connected;
+  $('#btnIdentify').disabled = !(state.source === 'ble' || state.source === 'usb');
+}
+
+function render() {
+  renderConn();
+  const has = state.readings.length > 0;
+  $('#emptyState').hidden = has || !!state.source;
+  $('#dash').hidden = !(has || state.source);
+  if ($('#dash').hidden) return;
+  const r = state.readings[state.readings.length - 1] || {};
+  renderHero(r);
+  renderFreq(r);
+  renderTiles(r);
+  renderRange();
+  renderSpectrum(r);
+  renderTrend();
+  renderEvents();
+  renderInfo(r);
+}
+
+function renderHero(r) {
+  const z = zoneOf(r.vel);
+  const chip = $('#zoneChip');
+  chip.textContent = '';
+  if (z) {
+    const s = STATUS[z];
+    const c = h('span', { class: 'status-chip' }, h('span', { class: 'ic', 'aria-hidden': 'true' }, s.icon), zoneName(z));
+    setStatusVars(c, s.st);
+    chip.append(c);
+    $('#zoneDesc').textContent = t('zone' + s.key + '_d');
+  } else {
+    chip.append(h('span', { class: 'status-chip' }, h('span', { class: 'ic' }, '…'), t('no_data')));
+    $('#zoneDesc').textContent = '';
+  }
+  $('#velValue').textContent = fmt(r.vel, 2);
+  $('#velUnit').textContent = t('u_mms');
+  const run = $('#runState');
+  run.textContent = '';
+  if (r.vel != null) {
+    const on = r.vel >= RUNNING_MM_S;
+    run.append(h('span', { class: 'dot' + (on ? ' good' : '') }), on ? t('running') : t('idle'));
+  }
+
+  // zone scale: A | B | C | D, marker at the current value
+  const lim = ISO[state.isoClass];
+  const max = lim[2] * 1.45;
+  const bar = $('#zoneBar');
+  bar.textContent = '';
+  const track = h('div', { class: 'track' });
+  const edges = [0, lim[0], lim[1], lim[2], max];
+  for (let i = 0; i < 4; i++) {
+    const seg = h('div', { class: 'seg-z' + (z === i + 1 ? ' active' : ''), style: 'flex:' + (edges[i + 1] - edges[i]) });
+    setStatusVars(seg, STATUS[i + 1].st);
+    track.append(seg);
+    bar.append(h('span', { class: 'zl', style: 'inset-inline-start:' + (((edges[i] + edges[i + 1]) / 2) / max) * 100 + '%' }, STATUS[i + 1].key));
+  }
+  bar.append(track);
+  // the positioned span must keep the page direction (inset-inline-start); only its text is LTR
+  for (let i = 1; i <= 3; i++) bar.append(h('span', { class: 'tick', style: 'inset-inline-start:' + (edges[i] / max) * 100 + '%' }, numEl(String(edges[i]))));
+  if (r.vel != null) bar.append(h('div', { class: 'marker', style: 'inset-inline-start:' + Math.min(100, (r.vel / max) * 100) + '%' }));
+
+  const sel = $('#isoClass');
+  if (sel.options.length !== 4 || sel.dataset.lang !== state.lang) {
+    sel.textContent = '';
+    for (let c = 1; c <= 4; c++) sel.append(h('option', { value: c }, t('cls' + c)));
+    sel.dataset.lang = state.lang;
+  }
+  sel.value = String(state.isoClass);
+}
+
+function renderFreq(r) {
+  const body = $('#freqBody');
+  body.textContent = '';
+  const clear = r.vel != null && r.fv != null && r.f != null && r.fv >= DOMINANT_MIN && r.vel >= RUNNING_MM_S / 2;
+  if (clear) {
+    body.append(h('div', null, numEl(fmt(r.f, 1), 'big'), h('span', { class: 'unit' }, t('u_hz'))));
+    body.append(h('div', { class: 'sub' }, t('rpm_equiv', { rpm: fmtInt(r.f * 60) })));
+  } else {
+    body.append(h('div', { class: 'big', style: 'font-size:26px' }, r.vel == null ? '—' : t('no_dom')));
+    if (r.vel != null) body.append(h('div', { class: 'sub' }, t('no_dom_sub')));
+  }
+  const dl = h('dl');
+  const row = (k, v) => dl.append(h('dt', null, k), h('dd', null, v));
+  if (clear) row(t('peak_amp'), numEl(fmt(r.fv, 2) + ' ' + t('u_mms')));
+  if (r.axis != null) row(t('axis'), numEl('XYZ'[r.axis] || '—'));
+  row(t('sample_rate'), numEl(state.fs ? fmt(state.fs, 0) + ' ' + t('u_hz') : '—'));
+  body.append(dl);
+}
+
+function rangeData() {
+  const t0 = Date.now() - state.rangeMin * 60000;
+  return state.readings.filter((x) => x.time >= t0);
+}
+
+function sparkline(values) {
+  const pts = values.filter((v) => v != null);
+  if (pts.length < 2) return null;
+  const W = 200, H = 30, pad = 4;
+  let lo = Math.min(...pts), hi = Math.max(...pts);
+  if (hi - lo < 1e-9) { lo -= 1; hi += 1; }
+  const n = values.length;
+  let d = '', last = null;
+  values.forEach((v, i) => {
+    if (v == null) return;
+    const x = (i / (n - 1)) * W, y = pad + (1 - (v - lo) / (hi - lo)) * (H - 2 * pad);
+    d += (d ? 'L' : 'M') + x.toFixed(1) + ',' + y.toFixed(1);
+    last = [x, y];
+  });
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('class', 'spark');
+  svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
+  svg.setAttribute('preserveAspectRatio', 'none');
+  svg.setAttribute('aria-hidden', 'true');
+  svg.innerHTML = '<path d="' + d + '" fill="none" stroke="var(--axis)" stroke-width="2" vector-effect="non-scaling-stroke" stroke-linejoin="round" stroke-linecap="round"/>' +
+    '<circle cx="' + last[0] + '" cy="' + last[1] + '" r="3.5" fill="var(--series)" stroke="var(--surface)" stroke-width="2" vector-effect="non-scaling-stroke"/>';
+  return svg;
+}
+
+function tile(label, value, unit, sub, spark, extra) {
+  const el = h('article', { class: 'card tile' + (value == null ? ' off' : '') });
+  el.append(h('div', { class: 'label' }, label));
+  el.append(h('div', { class: 'value' }, value == null ? (extra && extra.offText) || '—' : numEl(value), value == null ? null : h('span', { class: 'unit' }, unit)));
+  el.append(h('div', { class: 'sub' }, sub || ''));
+  if (extra && extra.meter != null) el.append(h('div', { class: 'meter', role: 'img', 'aria-label': label }, h('div', { style: 'width:' + extra.meter + '%' })));
+  if (spark) el.append(spark);
+  return el;
+}
+
+function renderTiles(r) {
+  const data = rangeData().slice(-90);
+  const col = (k) => data.map((x) => (x[k] == null ? null : x[k]));
+  const s = r.sens || {};
+  const box = $('#tiles');
+  box.textContent = '';
+  box.append(tile(t('acc'), r.arms == null ? null : fmt(r.arms, 1), t('u_mg'),
+    r.apk == null ? '' : t('acc_sub', { apk: fmt(r.apk, 0) + ' ' + t('u_mg'), crest: fmt(r.crest, 1) }), sparkline(col('arms'))));
+  if (s.mlx && r.ir != null) {
+    box.append(tile(t('ir'), fmt(r.ir, 1), t('u_c'), t('ir_sub', { amb: fmt(r.ira, 1) + ' ' + t('u_c') }), sparkline(col('ir'))));
+  } else {
+    box.append(tile(t('ir'), null, '', t('ir_hint'), null, { offText: t('ir_missing') }));
+  }
+  box.append(tile(t('int_temp'), r.t == null ? null : fmt(r.t, 1), t('u_c'), r.rh == null ? '' : t('int_sub', { rh: fmt(r.rh, 0) + '%' }), sparkline(col('t'))));
+  box.append(tile(t('pressure'), r.p == null ? null : fmt(r.p, 1), t('u_hpa'), t('pressure_sub'), sparkline(col('p'))));
+  const meter = r.snd == null ? null : Math.max(0, Math.min(100, ((r.snd + 90) / 70) * 100));
+  box.append(tile(t('sound'), r.snd == null ? null : fmt(r.snd, 1), t('u_db'), t('sound_sub'), sparkline(col('snd')), { meter }));
+  if (s.pz && r.pzp != null) {
+    box.append(tile(t('piezo'), fmt(r.pzp, 0), t('u_mv'), t('piezo_sub', { n: fmtInt(r.pzi), rms: fmt(r.pzr, 0) }), sparkline(col('pzp'))));
+  } else {
+    box.append(tile(t('piezo'), null, '', t('piezo_hint'), null, { offText: t('piezo_off') }));
+  }
+}
+
+function renderRange() {
+  const seg = $('#rangeSeg');
+  if (seg.dataset.lang !== state.lang) {
+    seg.textContent = '';
+    for (const m of [1, 5, 15, 60]) seg.append(h('button', { 'data-m': m }, t('r' + m)));
+    seg.dataset.lang = state.lang;
+  }
+  for (const b of seg.children) b.setAttribute('aria-pressed', String(+b.dataset.m === state.rangeMin));
+  for (const g of document.querySelectorAll('.seg[data-view]')) {
+    for (const b of g.children) b.setAttribute('aria-pressed', String(state.view[g.dataset.view] === b.dataset.v));
+  }
+}
+
+// ---------------------------------------------------- spectrum chart ---
+function renderSpectrum(r) {
+  const sp = state.spectrum;
+  const axisName = sp && sp.axis != null ? 'XYZ'[sp.axis] : '—';
+  $('#specSub').textContent = t('spectrum_sub', { axis: axisName });
+  const box = $('#specChart'), tableBox = $('#specTable');
+  const asTable = state.view.spec === 'table';
+  box.hidden = asTable;
+  tableBox.hidden = !asTable;
+  if (!sp) {
+    box.innerHTML = '<div class="placeholder"></div>';
+    box.firstChild.textContent = t('no_data');
+    box._geo = null;
+    return;
+  }
+  const fs = sp.fs || 928, df = fs / NFFT;
+  const bandLo = (b) => (K0 + BW * b) * df, bandHi = (b) => (K0 + BW * (b + 1)) * df;
+
+  if (asTable) {
+    const tb = h('table', null, h('thead', null, h('tr', null, h('th', null, t('col_band') + ' (' + t('u_hz') + ')'), h('th', null, t('col_val') + ' (' + t('u_mms') + ')'))));
+    const body = h('tbody');
+    sp.bands.forEach((v, b) => body.append(h('tr', null, h('td', null, numEl(fmt(bandLo(b), 0) + '–' + fmt(bandHi(b), 0))), h('td', null, numEl(fmt(v, 3))))));
+    tb.append(body);
+    tableBox.textContent = '';
+    tableBox.append(tb);
+    return;
+  }
+
+  const W = Math.max(300, box.clientWidth), H = 236;
+  const m = { l: 46, r: 10, t: 24, b: 30 };
+  const pw = W - m.l - m.r, ph = H - m.t - m.b;
+  const fMax = niceCeil(bandHi(BANDS - 1));
+  const vmax = Math.max(...sp.bands);
+  const ymax = niceCeil(Math.max(vmax * 1.18, 0.2));
+  const X = (f) => m.l + (f / fMax) * pw;
+  const Y = (v) => m.t + ph - (v / ymax) * ph;
+  let s = '';
+  for (let i = 0; i <= 4; i++) {
+    const v = (ymax / 4) * i, y = Y(v);
+    s += '<line x1="' + m.l + '" x2="' + (W - m.r) + '" y1="' + y + '" y2="' + y + '" stroke="' + (i ? 'var(--grid)' : 'var(--axis)') + '" stroke-width="1"/>';
+    s += '<text x="' + (m.l - 8) + '" y="' + (y + 4) + '" text-anchor="end">' + +v.toFixed(3) + '</text>';
+  }
+  const step = fMax > 300 ? 50 : 25;
+  for (let f = 0; f < fMax - 0.01; f += step) s += '<text x="' + X(f) + '" y="' + (H - 8) + '" text-anchor="middle">' + f + '</text>';
+  // the last tick carries the unit, so the two never collide
+  s += '<text x="' + (W - m.r) + '" y="' + (H - 8) + '" text-anchor="end" direction="ltr">' + fMax + ' ' + (state.lang === 'ar' ? 'Hz' : t('u_hz')) + '</text>';
+  s += '<text x="' + (m.l - 8) + '" y="' + (m.t - 10) + '" text-anchor="end">' + t('u_mms') + '</text>';
+
+  const slot = X(bandHi(0)) - X(bandLo(0));
+  const bw = Math.max(1, Math.min(24, slot - 2));
+  let best = 0;
+  sp.bands.forEach((v, b) => {
+    if (v > sp.bands[best]) best = b;
+    const x = X(bandLo(b)) + (slot - bw) / 2, y = Y(v), y0 = Y(0);
+    const hgt = y0 - y;
+    if (hgt >= 0.5) {
+      const rr = Math.min(4, bw / 2, hgt);
+      s += '<path class="bar" data-b="' + b + '" d="M' + x + ',' + y0 + 'V' + (y + rr) + 'Q' + x + ',' + y + ' ' + (x + rr) + ',' + y + 'H' + (x + bw - rr) + 'Q' + (x + bw) + ',' + y + ' ' + (x + bw) + ',' + (y + rr) + 'V' + y0 + 'Z" fill="var(--series)"' + (state.hover.spec === b ? ' opacity="0.65"' : '') + '/>';
+    }
+  });
+  // selective label: only the dominant peak
+  if (vmax >= DOMINANT_MIN) {
+    const fLabel = sp.f && sp.f >= bandLo(best) - df && sp.f <= bandHi(best) + df ? sp.f : (bandLo(best) + bandHi(best)) / 2;
+    const x = Math.min(W - m.r - 30, Math.max(m.l + 30, X(bandLo(best)) + slot / 2));
+    s += '<text class="lbl" x="' + x + '" y="' + (Y(sp.bands[best]) - 7) + '" text-anchor="middle">' + fLabel.toFixed(1) + ' ' + t('u_hz') + '</text>';
+  }
+  box.innerHTML = '<svg viewBox="0 0 ' + W + ' ' + H + '" height="' + H + '" role="img" aria-label="' + t('spectrum') + '">' + s + '</svg>';
+  box._geo = { W, m, pw, ph, fMax, df, bands: sp.bands, bandLo, bandHi };
+}
+
+// Hover handlers live on the chart containers, which persist across renders
+// (the SVG inside is rebuilt every second, so it can't hold the listeners)
+function svgX(ev, box, geo) {
+  const svg = box.querySelector('svg');
+  if (!svg) return null;
+  const rect = svg.getBoundingClientRect();
+  const x = (ev.clientX - rect.left) * (geo.W / rect.width);
+  const y = (ev.clientY - rect.top) * (geo.W / rect.width);
+  if (x < geo.m.l || x > geo.m.l + geo.pw || y < geo.m.t - 8 || y > geo.m.t + geo.ph + 8) return null;
+  return x;
+}
+function onSpecMove(ev) {
+  const box = $('#specChart'), g = box._geo;
+  const x = g ? svgX(ev, box, g) : null;
+  const b = x == null ? null : Math.floor((((x - g.m.l) / g.pw) * g.fMax / g.df - K0) / BW);
+  if (b == null || b < 0 || b >= BANDS) { onSpecLeave(); return; }
+  if (state.hover.spec !== b) { state.hover.spec = b; scheduleRender(); }
+  showTip(ev, fmt(g.bands[b], 3) + ' ' + t('u_mms'), fmt(g.bandLo(b), 0) + '–' + fmt(g.bandHi(b), 0) + ' ' + t('u_hz'));
+}
+function onSpecLeave() {
+  if (state.hover.spec != null) { state.hover.spec = null; scheduleRender(); }
+  hideTip();
+}
+
+// ------------------------------------------------------- trend chart ---
+function renderTrend() {
+  $('#trendSub').textContent = t('trend_sub', { cls: ['I', 'II', 'III', 'IV'][state.isoClass - 1] });
+  const box = $('#trendChart'), tableBox = $('#trendTable');
+  const asTable = state.view.trend === 'table';
+  box.hidden = asTable;
+  tableBox.hidden = !asTable;
+  const data = rangeData().filter((x) => x.vel != null);
+
+  if (asTable) {
+    const cols = [['col_time', (x) => clock(x.time)], ['col_val', (x) => fmt(x.vel, 2)], ['col_zone', (x) => STATUS[zoneOf(x.vel)].key],
+      ['col_acc', (x) => fmt(x.arms, 1)], ['col_f', (x) => fmt(x.f, 1)], ['col_ir', (x) => fmt(x.ir, 1)], ['col_t', (x) => fmt(x.t, 1)], ['col_snd', (x) => fmt(x.snd, 1)]];
+    const tb = h('table', null, h('thead', null, h('tr', null, ...cols.map((c) => h('th', null, t(c[0]))))));
+    const body = h('tbody');
+    data.slice(-120).reverse().forEach((x) => body.append(h('tr', null, ...cols.map((c) => h('td', null, numEl(c[1](x)))))));
+    tb.append(body);
+    tableBox.textContent = '';
+    tableBox.append(tb);
+    return;
+  }
+  if (data.length < 2) {
+    box.innerHTML = '<div class="placeholder"></div>';
+    box.firstChild.textContent = t('no_data');
+    box._geo = null;
+    return;
+  }
+
+  const W = Math.max(300, box.clientWidth), H = 236;
+  const m = { l: 46, r: 14, t: 16, b: 30 };
+  const pw = W - m.l - m.r, ph = H - m.t - m.b;
+  const now = Date.now(), t0 = now - state.rangeMin * 60000;
+  const lim = ISO[state.isoClass];
+  const vmax = Math.max(...data.map((x) => x.vel));
+  const ymax = niceCeil(Math.max(vmax * 1.15, lim[1] * 1.12));
+  const X = (ms) => m.l + ((ms - t0) / (now - t0)) * pw;
+  const Y = (v) => m.t + ph - (Math.min(v, ymax) / ymax) * ph;
+  let s = '';
+  // zone background washes (status colours, very light)
+  const edges = [0, lim[0], lim[1], lim[2], Infinity];
+  for (let i = 0; i < 4; i++) {
+    const lo = edges[i], hi = Math.min(edges[i + 1], ymax);
+    if (lo >= ymax) break;
+    s += '<rect x="' + m.l + '" y="' + Y(hi) + '" width="' + pw + '" height="' + (Y(lo) - Y(hi)) + '" fill="var(--' + STATUS[i + 1].st + ')" opacity="0.07"/>';
+  }
+  for (let i = 0; i <= 4; i++) {
+    const v = (ymax / 4) * i, y = Y(v);
+    s += '<line x1="' + m.l + '" x2="' + (W - m.r) + '" y1="' + y + '" y2="' + y + '" stroke="' + (i ? 'var(--grid)' : 'var(--axis)') + '" stroke-width="1"/>';
+    s += '<text x="' + (m.l - 8) + '" y="' + (y + 4) + '" text-anchor="end">' + +v.toFixed(2) + '</text>';
+  }
+  for (let i = 0; i < 3; i++) {
+    if (lim[i] >= ymax) continue;
+    const y = Y(lim[i]);
+    s += '<line x1="' + m.l + '" x2="' + (W - m.r) + '" y1="' + y + '" y2="' + y + '" stroke="var(--' + STATUS[i + 2].st + ')" stroke-width="1" opacity="0.8"/>';
+    s += '<text x="' + (m.l + 6) + '" y="' + (y - 5) + '" class="lbl">' + STATUS[i + 1].key + '|' + STATUS[i + 2].key + ' ' + lim[i] + '</text>';
+  }
+  // time ticks
+  const span = (now - t0) / 1000;
+  const stepS = [10, 15, 30, 60, 120, 300, 600, 900, 1800].find((st) => span / st <= 6) || 1800;
+  const first = Math.ceil(t0 / 1000 / stepS) * stepS * 1000;
+  for (let ms = first; ms <= now; ms += stepS * 1000) {
+    const label = stepS >= 60 ? clock(ms).slice(0, 5) : clock(ms);
+    s += '<text x="' + X(ms) + '" y="' + (H - 8) + '" text-anchor="middle">' + label + '</text>';
+  }
+  s += '<text x="' + (m.l - 8) + '" y="' + (m.t - 4) + '" text-anchor="end">' + t('u_mms') + '</text>';
+  // line + wash, broken across gaps (disconnects)
+  let line = '', area = '', seg = [];
+  const flush = () => {
+    if (seg.length > 1) {
+      line += 'M' + seg.map((p) => p.join(',')).join('L');
+      area += 'M' + seg[0][0] + ',' + Y(0) + 'L' + seg.map((p) => p.join(',')).join('L') + 'L' + seg[seg.length - 1][0] + ',' + Y(0) + 'Z';
+    }
+    seg = [];
+  };
+  data.forEach((x, i) => {
+    if (i && x.time - data[i - 1].time > 5000) flush();
+    seg.push([X(x.time).toFixed(1), Y(x.vel).toFixed(1)]);
+  });
+  flush();
+  s += '<path d="' + area + '" fill="var(--series-wash)"/>';
+  s += '<path d="' + line + '" fill="none" stroke="var(--series)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>';
+  const lastP = data[data.length - 1];
+  s += '<circle cx="' + X(lastP.time) + '" cy="' + Y(lastP.vel) + '" r="4" fill="var(--series)" stroke="var(--surface)" stroke-width="2"/>';
+  // hover crosshair
+  const hv = state.hover.trend != null ? data.reduce((a, b) => (Math.abs(b.time - state.hover.trend) < Math.abs(a.time - state.hover.trend) ? b : a)) : null;
+  if (hv) {
+    s += '<line x1="' + X(hv.time) + '" x2="' + X(hv.time) + '" y1="' + m.t + '" y2="' + (m.t + ph) + '" stroke="var(--muted)" stroke-width="1"/>';
+    s += '<circle cx="' + X(hv.time) + '" cy="' + Y(hv.vel) + '" r="4.5" fill="var(--series)" stroke="var(--surface)" stroke-width="2"/>';
+  }
+  box.innerHTML = '<svg viewBox="0 0 ' + W + ' ' + H + '" height="' + H + '" role="img" aria-label="' + t('trend') + '">' + s + '</svg>';
+  box._geo = { W, m, pw, ph, t0, now, data };
+}
+
+function onTrendMove(ev) {
+  const box = $('#trendChart'), g = box._geo;
+  const x = g ? svgX(ev, box, g) : null;
+  if (x == null || !g.data.length) { onTrendLeave(); return; }
+  const ms = g.t0 + ((x - g.m.l) / g.pw) * (g.now - g.t0);
+  const near = g.data.reduce((a, b) => (Math.abs(b.time - ms) < Math.abs(a.time - ms) ? b : a));
+  state.hover.trend = near.time;
+  showTip(ev, fmt(near.vel, 2) + ' ' + t('u_mms'), clock(near.time) + ' · ' + zoneName(zoneOf(near.vel)));
+  scheduleRender();
+}
+function onTrendLeave() {
+  if (state.hover.trend != null) { state.hover.trend = null; scheduleRender(); }
+  hideTip();
+}
+
+// --------------------------------------------------- events + device ---
+function renderEvents() {
+  const ul = $('#events');
+  ul.textContent = '';
+  if (!state.events.length) { ul.append(h('li', { class: 'muted' }, t('no_events'))); return; }
+  for (const e of state.events.slice(0, 60)) {
+    const vars = Object.assign({}, e.vars);
+    if (vars.zoneKey) vars.zone = zoneName(vars.zoneKey);
+    if (vars.srcKey) vars.src = t('src_' + vars.srcKey);
+    if (vars.clsN) vars.cls = t('cls' + vars.clsN);
+    const ic = h('span', { class: 'ic', 'aria-hidden': 'true' }, e.icon);
+    setStatusVars(ic, e.st);
+    ul.append(h('li', null, ic, h('span', null, t(e.key, vars)), h('time', { class: 'num' }, clock(e.time))));
+  }
+}
+
+function fmtUptime(s) {
+  if (s == null) return '—';
+  const hh = Math.floor(s / 3600), mm = Math.floor((s % 3600) / 60), ss = s % 60;
+  return (hh ? hh + ':' : '') + String(mm).padStart(hh ? 2 : 1, '0') + ':' + String(ss).padStart(2, '0');
+}
+
+function renderInfo(r) {
+  const dl = $('#info');
+  dl.textContent = '';
+  const row = (k, v) => dl.append(h('dt', null, k), h('dd', null, v));
+  row(t('conn'), state.source ? t('src_' + state.source) : t('st_off'));
+  row(t('fw'), state.info.fw || '—');
+  row(t('board'), state.info.board || '—');
+  row(t('fs'), numEl(state.fs ? fmt(state.fs, 1) + ' ' + t('u_hz') : '—'));
+  row(t('uptime'), numEl(fmtUptime(r.up)));
+  row(t('packets'), numEl(fmtInt(state.packets)));
+  const ago = state.lastRx ? Math.round((Date.now() - state.lastRx) / 1000) : null;
+  row(t('last'), ago == null ? '—' : ago < 120 ? t('ago', { n: ago }) : t('ago_m', { n: Math.round(ago / 60) }));
+  const sens = h('div', { class: 'sensors' });
+  const s = r.sens || {};
+  for (const k of ['imu', 'hts', 'lps', 'mic', 'mlx', 'pz']) {
+    sens.append(h('span', { class: 'sensor', title: s[k] ? t('on') : t('off') }, h('span', { class: 'dot' + (s[k] ? ' good' : '') }), t('s_' + k)));
+  }
+  row(t('sensors'), sens);
+}
+
+// ------------------------------------------------------------ tooltip ---
+function showTip(ev, value, sub) {
+  const tip = $('#tip');
+  tip.textContent = '';
+  tip.append(h('div', { class: 'v' }, h('span', { class: 'k' }), numEl(value)), h('div', { class: 's' }, sub));
+  tip.hidden = false;
+  const w = tip.offsetWidth, hh = tip.offsetHeight;
+  let x = ev.clientX + 14, y = ev.clientY - hh - 12;
+  if (x + w > window.innerWidth - 8) x = ev.clientX - w - 14;
+  if (y < 8) y = ev.clientY + 16;
+  tip.style.left = x + 'px';
+  tip.style.top = y + 'px';
+}
+function hideTip() { $('#tip').hidden = true; }
+
+let toastTimer = null;
+function toast(msg) {
+  const el = $('#toast');
+  el.textContent = msg;
+  el.hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { el.hidden = true; }, 4500);
+}
+
+// -------------------------------------------------------------- export ---
+function exportCsv() {
+  const cols = ['time', 'seq', 'vel_mm_s', 'zone', 'acc_rms_mg', 'acc_peak_mg', 'crest', 'dom_freq_hz', 'dom_vel_mm_s', 'axis',
+    'ir_object_c', 'ir_ambient_c', 'internal_temp_c', 'humidity_pct', 'pressure_hpa', 'sound_dbfs', 'piezo_peak_mv', 'piezo_rms_mv', 'piezo_impacts'];
+  const val = (v, d) => (v == null || Number.isNaN(v) ? '' : d == null ? v : Number(v).toFixed(d));
+  const rows = state.readings.map((x) => [new Date(x.time).toISOString(), x.seq, val(x.vel, 3), x.vel == null ? '' : STATUS[zoneOf(x.vel)].key,
+    val(x.arms, 1), val(x.apk, 1), val(x.crest, 2), val(x.f, 1), val(x.fv, 3), x.axis == null ? '' : 'XYZ'[x.axis],
+    val(x.ir, 2), val(x.ira, 2), val(x.t, 2), val(x.rh, 1), val(x.p, 1), val(x.snd, 1), val(x.pzp, 0), val(x.pzr, 0), val(x.pzi, 0)].join(','));
+  const blob = new Blob(['﻿' + cols.join(',') + '\n' + rows.join('\n') + '\n'], { type: 'text/csv;charset=utf-8' });
+  const a = h('a', { href: URL.createObjectURL(blob), download: 'mantis-' + new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-') + '.csv' });
+  document.body.append(a);
+  a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+  toast(t('exported', { n: state.readings.length }));
+}
+
+// ----------------------------------------------------------- settings ---
+function applyLang() {
+  document.documentElement.lang = state.lang;
+  document.documentElement.dir = state.lang === 'ar' ? 'rtl' : 'ltr';
+  for (const el of document.querySelectorAll('[data-i18n]')) el.textContent = t(el.dataset.i18n);
+  for (const el of document.querySelectorAll('[data-i18n-title]')) {
+    el.title = t(el.dataset.i18nTitle);
+    el.setAttribute('aria-label', el.title);
+  }
+  $('#btnLang').textContent = state.lang === 'ar' ? 'EN' : 'ع';
+  const ios = /iPhone|iPad|iPod/.test(navigator.userAgent);
+  $('#browserNote').textContent = navigator.bluetooth ? t('browser_ok') : t(ios ? 'no_ble_ios' : 'no_ble');
+  for (const b of document.querySelectorAll('[data-act="usb"]')) b.hidden = !navigator.serial;
+  scheduleRender();
+}
+function applyTheme() {
+  if (state.theme === 'auto') document.documentElement.removeAttribute('data-theme');
+  else document.documentElement.setAttribute('data-theme', state.theme);
+}
+
+// ------------------------------------------------------------ wiring ---
+$('#btnBle').onclick = connectBle;
+$('#btnUsb').onclick = connectUsb;
+$('#btnDemo').onclick = startDemo;
+for (const b of document.querySelectorAll('[data-act]')) {
+  b.onclick = { ble: connectBle, usb: connectUsb, demo: startDemo }[b.dataset.act];
+}
+$('#btnDisconnect').onclick = async () => {
+  const had = state.source && state.source !== 'demo';
+  await stopSource();
+  if (had) addEvent('serious', '!', 'ev_disc');
+};
+$('#btnLang').onclick = () => { state.lang = state.lang === 'ar' ? 'en' : 'ar'; store.set('lang', state.lang); applyLang(); };
+$('#btnTheme').onclick = () => {
+  const dark = state.theme === 'dark' || (state.theme === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
+  state.theme = dark ? 'light' : 'dark';
+  store.set('theme', state.theme);
+  applyTheme();
+};
+$('#isoClass').onchange = (e) => {
+  state.isoClass = +e.target.value;
+  store.set('cls', state.isoClass);
+  state.reportedZone = zoneOf((state.readings[state.readings.length - 1] || {}).vel);
+  addEvent('good', 'i', 'ev_cls', { clsN: state.isoClass });
+  sendCommand([1, state.isoClass]);
+};
+$('#rangeSeg').onclick = (e) => {
+  const m = e.target.dataset && e.target.dataset.m;
+  if (!m) return;
+  state.rangeMin = +m;
+  store.set('range', state.rangeMin);
+  scheduleRender();
+};
+for (const g of document.querySelectorAll('.seg[data-view]')) {
+  g.onclick = (e) => {
+    if (!e.target.dataset.v) return;
+    state.view[g.dataset.view] = e.target.dataset.v;
+    scheduleRender();
+  };
+}
+$('#btnIdentify').onclick = () => { sendCommand([2]); toast(t('identify_sent')); };
+$('#btnExport').onclick = exportCsv;
+$('#btnClear').onclick = () => {
+  state.readings = state.readings.slice(-1);
+  state.events = [];
+  toast(t('cleared'));
+  scheduleRender();
+};
+$('#specChart').addEventListener('pointermove', onSpecMove);
+$('#specChart').addEventListener('pointerleave', onSpecLeave);
+$('#trendChart').addEventListener('pointermove', onTrendMove);
+$('#trendChart').addEventListener('pointerleave', onTrendLeave);
+new ResizeObserver(() => scheduleRender()).observe($('main'));
+setInterval(() => { if (state.source) scheduleRender(); }, 1000);
+
+// offline support once published (https only; localhost is for development)
+if ('serviceWorker' in navigator && location.protocol === 'https:') {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+
+applyTheme();
+applyLang();
+render();
+</script>
+</body>
+</html>
