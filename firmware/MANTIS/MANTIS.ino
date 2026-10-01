@@ -1,6 +1,6 @@
 // ============================================================================
 //  MANTIS - Multimodal Autonomous Non-Invasive Technical Inspection System
-//  Firmware for Arduino Nano 33 BLE Sense Rev1 (nRF52840)            v1.1.0
+//  Firmware for Arduino Nano 33 BLE Sense Rev1 (nRF52840)            v1.1.1
 // ----------------------------------------------------------------------------
 //  Every analysis window (1024 accelerometer samples, ~1.08 s) the device
 //  measures and publishes:
@@ -44,7 +44,7 @@
 #include <mbed.h>
 using namespace std::chrono_literals;
 
-#define FW_VERSION "1.1.0"
+#define FW_VERSION "1.1.1"
 
 // ---------------------------------------------------------------- settings --
 const bool  PIEZO_ENABLED   = false;  // set to true once the piezo disc is wired
@@ -774,9 +774,19 @@ void setup() {
 void loop() {
   static bool wasConnected = false;
   static uint32_t lastPublish = 0;
+  static bool wasBleConnected = false;
+  static uint32_t lastAdvertise = 0;
 
   if (bleOk) {
     BLE.poll();
+    const bool isBleConnected = BLE.connected();
+    // Some central devices leave the radio undiscoverable after a disconnect.
+    // Refresh advertising only while idle; an active connection is untouched.
+    if (!isBleConnected && (wasBleConnected || millis() - lastAdvertise >= 15000)) {
+      BLE.advertise();
+      lastAdvertise = millis();
+    }
+    wasBleConnected = isBleConnected;
     pollIMU();
     sendPendingBLE();
   }

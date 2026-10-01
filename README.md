@@ -76,3 +76,6 @@ Open https://sl11k.github.io/mantis/ in Chrome or Edge (desktop or Android), or 
 Then press **Connect Bluetooth** and pick **MANTIS**. It can be added to the home screen and works
 offline after the first visit. For USB or local development, run `node app/serve.js` and open
 http://localhost:8765. See [`app/README.md`](app/README.md).
+
+After live data arrives, press **Create first reading** to save the next real measurement on this
+browser. The completion summary remains after a page reload. Demo data cannot create it.

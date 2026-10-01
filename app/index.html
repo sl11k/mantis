@@ -166,6 +166,8 @@ main { max-width: 1280px; margin: 0 auto; padding: 20px 24px 56px; }
 .empty li { margin-bottom: 8px; }
 .empty .actions { margin-top: 18px; }
 .note { font-size: 13.5px; color: var(--ink-2); }
+.first-reading { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+.first-reading p { margin: 4px 0 0; }
 
 /* -------------------------------------------------------------------- hero */
 .status-chip {
@@ -315,6 +317,11 @@ td { font-variant-numeric: tabular-nums; }
     </div>
   </section>
 
+  <section class="card first-reading" aria-labelledby="firstReadingTitle">
+    <div><h2 id="firstReadingTitle" data-i18n="first_title"></h2><p class="note" id="firstReadingStatus" role="status"></p></div>
+    <button class="btn primary" id="btnFirstReading" data-i18n="first_create"></button>
+  </section>
+
   <section class="empty card" id="emptyState">
     <h1 data-i18n="empty_title"></h1>
     <p class="ink2" data-i18n="empty_intro"></p>
@@ -437,6 +444,11 @@ const I18N = {
     empty_step2: 'اضغط «اتصال بلوتوث» واختر MANTIS من القائمة.',
     empty_step3: 'ثبّت الجهاز على سطح الآلة (المغناطيس للأسفل) وتظهر القراءات خلال ثانية.',
     empty_alt: 'الجهاز موصول بالكمبيوتر بسلك؟ استخدم «اتصال USB». تبي تشوف الواجهة بدون جهاز؟ جرّب «عرض تجريبي».',
+    first_title: 'أول قراءة', first_create: 'إنشاء أول قراءة', first_wait: 'بانتظار قراءة جديدة من الجهاز…',
+    first_need: 'وصّل الجهاز عبر البلوتوث أو USB لإنشاء قراءة حقيقية.',
+    first_ready: 'الجهاز متصل. اضغط الزر لحفظ أول قراءة حقيقية.',
+    first_done: '✓ اكتملت أول قراءة في {time}: الاهتزاز {vel} مم/ث، الصوت {snd} dB(A).',
+    first_saved: 'تم حفظ أول قراءة من الجهاز.',
     browser_ok: 'يعمل على Chrome أو Edge (كمبيوتر أو أندرويد).',
     machine_condition: 'حالة الآلة', vel_label: 'سرعة الاهتزاز (RMS، من 10 هرتز فما فوق)',
     zone: 'المنطقة',
@@ -479,7 +491,7 @@ const I18N = {
     help_1: 'لا تدوّره في إعدادات البلوتوث بالجوال. الاتصال يتم من هذي الصفحة بزر «اتصال بلوتوث» وبدون اقتران.',
     help_2: 'في أندرويد: شغّل الموقع (GPS)، وتأكد إن Chrome عنده صلاحية «الأجهزة القريبة» (الإعدادات ← التطبيقات ← Chrome ← الأذونات).',
     help_3: 'الجهاز يقبل اتصال واحد فقط: إذا الصفحة مفتوحة ومتصلة في الكمبيوتر، اضغط فيها «قطع الاتصال» أو سكّرها.',
-    help_4: 'تأكد إن لمبة الجهاز تومض (يعني جاهز) وقرّب الجوال منه.',
+    help_4: 'إذا اختفى من الكمبيوتر والجوال معًا، افصل طاقة اللوحة وأعد تشغيلها. تأكد إن اللمبة تومض وقرّب الجهاز.',
     help_5: 'في الآيفون: افتح الرابط من تطبيق Bluefy، مو من Safari.',
     try_again: 'حاول مرة ثانية', show_all: 'عرض كل الأجهزة القريبة',
     not_mantis: 'الجهاز اللي اخترته مو MANTIS. اختر الجهاز اللي اسمه MANTIS.',
@@ -502,6 +514,11 @@ const I18N = {
     empty_step2: 'Press “Connect Bluetooth” and pick MANTIS from the list.',
     empty_step3: 'Attach the device to the machine surface (magnets down); readings appear within a second.',
     empty_alt: 'Device plugged in with a cable? Use “Connect USB”. Want to see the dashboard without a device? Try “Demo”.',
+    first_title: 'First reading', first_create: 'Create first reading', first_wait: 'Waiting for a new reading from the device…',
+    first_need: 'Connect the device over Bluetooth or USB to create a real reading.',
+    first_ready: 'Device connected. Press the button to save the first real reading.',
+    first_done: '✓ First reading completed at {time}: vibration {vel} mm/s, sound {snd} dB(A).',
+    first_saved: 'First device reading saved.',
     browser_ok: 'Works in Chrome or Edge (desktop or Android).',
     machine_condition: 'Machine condition', vel_label: 'Vibration velocity (RMS, 10 Hz and up)',
     zone: 'Zone',
@@ -544,7 +561,7 @@ const I18N = {
     help_1: 'Don’t look for it in the phone’s Bluetooth settings. You connect from this page with “Connect Bluetooth”; no pairing is needed.',
     help_2: 'On Android: turn on Location, and make sure Chrome has the “Nearby devices” permission (Settings → Apps → Chrome → Permissions).',
     help_3: 'The device accepts one connection at a time: if this page is open and connected on a computer, press “Disconnect” there or close it.',
-    help_4: 'Check that the device LED is blinking (ready to connect) and move the phone closer.',
+    help_4: 'If it disappears on both computer and phone, power-cycle the board. Check that its LED blinks and move it closer.',
     help_5: 'On iPhone: open the link in the Bluefy app, not Safari.',
     try_again: 'Try again', show_all: 'Show all nearby devices',
     not_mantis: 'That device isn’t MANTIS. Pick the one named MANTIS.',
@@ -622,6 +639,7 @@ const state = {
   reportedZone: 0, zoneCand: 0, zoneCandN: 0, irHigh: false,
   ble: null, serial: null, demoTimer: null,
   pendingVib: null, specChunks: { seq: -1, parts: [], n: 0 },
+  firstReading: store.get('firstReading', null), firstReadingPending: false, firstReadingStarted: 0,
   hover: { trend: null, spec: null },
 };
 
@@ -636,6 +654,12 @@ function ingest(r) {
   if (!r.backfill) {
     state.lastRx = Date.now();
     state.packets++;
+    if (state.firstReadingPending && (state.source === 'ble' || state.source === 'usb') && r.vel != null) {
+      state.firstReading = { time: r.time, vel: r.vel, snd: r.snd, seq: r.seq, source: state.source };
+      store.set('firstReading', state.firstReading);
+      state.firstReadingPending = false;
+      toast(t('first_saved'));
+    }
     // zone change events need 3 readings in a row, so a value sitting on a limit doesn't flap
     const z = zoneOf(r.vel);
     if (z && z !== state.reportedZone) {
@@ -962,6 +986,7 @@ function scheduleRender() {
 
 function setConn(c) {
   state.conn = c;
+  if (c === 'off') state.firstReadingPending = false;
   scheduleRender();
 }
 
@@ -992,6 +1017,7 @@ function renderConn() {
 
 function render() {
   renderConn();
+  renderFirstReading();
   const has = state.readings.length > 0;
   $('#emptyState').hidden = has || !!state.source;
   $('#dash').hidden = !(has || state.source);
@@ -1005,6 +1031,17 @@ function render() {
   renderTrend();
   renderEvents();
   renderInfo(r);
+}
+function renderFirstReading() {
+  if (state.firstReadingPending && Date.now() - state.firstReadingStarted > 10000) state.firstReadingPending = false;
+  const saved = state.firstReading;
+  const live = (state.source === 'ble' || state.source === 'usb') && state.conn === 'live' && Date.now() - state.lastRx <= 5000;
+  const button = $('#btnFirstReading');
+  button.hidden = !!saved;
+  button.disabled = !live || state.firstReadingPending;
+  $('#firstReadingStatus').textContent = saved
+    ? t('first_done', { time: clock(saved.time), vel: fmt(saved.vel, 3), snd: fmt(saved.snd, 1) })
+    : state.firstReadingPending ? t('first_wait') : live ? t('first_ready') : t('first_need');
 }
 
 function renderHero(r) {
@@ -1501,6 +1538,12 @@ for (const g of document.querySelectorAll('.seg[data-view]')) {
 }
 $('#btnIdentify').onclick = () => { sendCommand([2]); toast(t('identify_sent')); };
 $('#btnExport').onclick = exportCsv;
+$('#btnFirstReading').onclick = () => {
+  if (state.firstReading || state.firstReadingPending || state.conn !== 'live' || Date.now() - state.lastRx > 5000 || !['ble', 'usb'].includes(state.source)) return;
+  state.firstReadingPending = true;
+  state.firstReadingStarted = Date.now();
+  scheduleRender();
+};
 $('#btnClear').onclick = () => {
   state.readings = state.readings.slice(-1);
   state.events = [];
