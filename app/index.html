@@ -447,6 +447,7 @@ const I18N = {
     first_title: 'أول قراءة', first_create: 'إنشاء أول قراءة', first_wait: 'بانتظار قراءة جديدة من الجهاز…',
     first_need: 'وصّل الجهاز عبر البلوتوث أو USB لإنشاء قراءة حقيقية.',
     first_ready: 'الجهاز متصل. اضغط الزر لحفظ أول قراءة حقيقية.',
+    first_connected_wait: 'البلوتوث متصل، لكن لم تصل قياسات بعد. انتظر قليلًا؛ إذا استمر، أعد تشغيل اللوحة والصفحة.',
     first_done: '✓ اكتملت أول قراءة في {time}: الاهتزاز {vel} مم/ث، الصوت {snd} dB(A).',
     first_saved: 'تم حفظ أول قراءة من الجهاز.',
     browser_ok: 'يعمل على Chrome أو Edge (كمبيوتر أو أندرويد).',
@@ -517,6 +518,7 @@ const I18N = {
     first_title: 'First reading', first_create: 'Create first reading', first_wait: 'Waiting for a new reading from the device…',
     first_need: 'Connect the device over Bluetooth or USB to create a real reading.',
     first_ready: 'Device connected. Press the button to save the first real reading.',
+    first_connected_wait: 'Bluetooth is connected, but no measurements have arrived. Wait briefly; if this continues, restart the board and page.',
     first_done: '✓ First reading completed at {time}: vibration {vel} mm/s, sound {snd} dB(A).',
     first_saved: 'First device reading saved.',
     browser_ok: 'Works in Chrome or Edge (desktop or Android).',
@@ -772,26 +774,44 @@ async function bleAttach() {
   const env = await svc.getCharacteristic(CHR.env);
   const spec = await svc.getCharacteristic(CHR.spec);
   b.ctrl = await svc.getCharacteristic(CHR.ctrl);
-  try {
-    const info = await svc.getCharacteristic(CHR.info);
-    parseInfo(new TextDecoder().decode(await info.readValue()));
-  } catch (e) { /* optional */ }
+  b.vib = vib;
+  b.env = env;
+  b.lastSeq = null;
   vib.oncharacteristicvaluechanged = onBleVib;
   env.oncharacteristicvaluechanged = onBleEnv;
   spec.oncharacteristicvaluechanged = onBleSpec;
-  await vib.startNotifications();
-  await env.startNotifications();
-  await spec.startNotifications();
-  await sendCommand([1, state.isoClass]);
+  // Bluefy and some BLE stacks connect before notifications become available.
+  // A failed optional subscription must not block the live connection.
+  for (const chr of [vib, env, spec]) {
+    try { await chr.startNotifications(); } catch (e) { /* polling below */ }
+  }
+  if (b.pollTimer) clearInterval(b.pollTimer);
+  b.pollTimer = setInterval(() => pollBleValues(b), 2000);
   if (!b.retries) addEvent('good', '✓', 'ev_conn', { srcKey: 'ble' });
   b.retries = 0;
   state.source = 'ble';
   setConn('live');
+  setTimeout(() => pollBleValues(b), 1500);
+}
+
+async function pollBleValues(b) {
+  if (state.ble !== b || b.userClosed || b.polling || state.source !== 'ble' || Date.now() - state.lastRx < 3000) return;
+  b.polling = true;
+  try {
+    const vib = decodeVib(await b.vib.readValue());
+    const env = decodeEnv(await b.env.readValue());
+    if (vib.seq === env.seq && env.seq !== b.lastSeq) {
+      b.lastSeq = env.seq;
+      ingest(Object.assign({}, vib, env));
+    }
+  } catch (e) { /* stale status remains visible; next poll retries */ }
+  finally { b.polling = false; }
 }
 
 async function onBleGone() {
   const b = state.ble;
   if (!b || b.userClosed) return;
+  if (b.pollTimer) { clearInterval(b.pollTimer); b.pollTimer = null; }
   if (b.retries === 0) addEvent('serious', '!', 'ev_disc');
   // keep trying while the device is in range: 1, 2, 4 ... 10 s
   while (state.ble === b && !b.userClosed && b.retries < 30) {
@@ -959,6 +979,7 @@ async function stopSource() {
   if (state.ble) {
     const b = state.ble;
     b.userClosed = true;
+    if (b.pollTimer) clearInterval(b.pollTimer);
     state.ble = null;
     try { if (b.device.gatt.connected) b.device.gatt.disconnect(); } catch (e) { /* gone */ }
   }
@@ -1041,7 +1062,8 @@ function renderFirstReading() {
   button.disabled = !live || state.firstReadingPending;
   $('#firstReadingStatus').textContent = saved
     ? t('first_done', { time: clock(saved.time), vel: fmt(saved.vel, 3), snd: fmt(saved.snd, 1) })
-    : state.firstReadingPending ? t('first_wait') : live ? t('first_ready') : t('first_need');
+    : state.firstReadingPending ? t('first_wait') : live ? t('first_ready')
+      : state.source === 'ble' && state.conn === 'live' ? t('first_connected_wait') : t('first_need');
 }
 
 function renderHero(r) {
