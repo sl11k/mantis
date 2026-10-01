@@ -1,13 +1,13 @@
 // ============================================================================
 //  MANTIS - Multimodal Autonomous Non-Invasive Technical Inspection System
-//  Firmware for Arduino Nano 33 BLE Sense Rev1 (nRF52840)            v1.0.0
+//  Firmware for Arduino Nano 33 BLE Sense Rev1 (nRF52840)            v1.1.0
 // ----------------------------------------------------------------------------
 //  Every analysis window (1024 accelerometer samples, ~1.08 s) the device
 //  measures and publishes:
 //    vibration  LSM9DS1 accelerometer @ 952 Hz, 1024-point FFT per axis:
 //               velocity RMS 10-475 Hz (mm/s) + ISO 10816 zone, acceleration
 //               RMS / peak, dominant frequency, 64-band velocity spectrum
-//    acoustic   MP34DT05 PDM microphone level (dBFS, uncalibrated)
+//    acoustic   MP34DT05 PDM microphone, A-weighted sound level dB(A) (approx.)
 //    internal   HTS221 temperature / humidity, LPS22HB pressure
 //    surface    MLX90614 IR thermometer on A4/A5 (optional, hot-plug)
 //    contact    piezo disc on an analog pin (optional, see PIEZO_ENABLED)
@@ -15,7 +15,8 @@
 //  Outputs
 //    BLE  service 4d414e54-4953-4e53-5045-435400000000 (see BLE PROTOCOL)
 //    USB  one JSON line per window @ 115200 baud; lines starting with '#'
-//         are human-readable. Commands: "C1".."C4" (ISO class), "I" (identify)
+//         are human-readable. Commands: "C1".."C4" (ISO class), "I" (identify),
+//         "M" (dump 4096 raw microphone samples as "#R" lines, for diagnostics)
 //  Libraries: ArduinoBLE (Library Manager); PDM and Wire come with the core.
 //
 //  BLE PROTOCOL (all little-endian; 0x7FFF / 0xFFFF = not available)
@@ -26,7 +27,7 @@
 //      u8 flags (bit0 FIFO overrun, bits1-2 axis 0=X 1=Y 2=Z)
 //   ...0002 environment  read/notify 20 B
 //      u16 seq | i16 temp 0.01 C | u16 humidity 0.01 % | u16 pressure 0.1 hPa |
-//      i16 ir_object 0.01 C | i16 ir_ambient 0.01 C | i16 sound 0.1 dBFS |
+//      i16 ir_object 0.01 C | i16 ir_ambient 0.01 C | i16 sound 0.1 dB(A) |
 //      u32 uptime s | u8 sensors (bit0 HTS221, 1 LPS22HB, 2 IMU, 3 MIC,
 //      4 MLX90614, 5 PIEZO) | u8 iso_class 1-4
 //   ...0003 spectrum     notify, 4 chunks x 20 B per window
@@ -43,7 +44,7 @@
 #include <mbed.h>
 using namespace std::chrono_literals;
 
-#define FW_VERSION "1.0.0"
+#define FW_VERSION "1.1.0"
 
 // ---------------------------------------------------------------- settings --
 const bool  PIEZO_ENABLED   = false;  // set to true once the piezo disc is wired
@@ -113,9 +114,28 @@ uint8_t mlxFails = 0;
 uint32_t lastMlxProbe = 0;
 
 // ------------------------------------------------------------- microphone --
+// Sound level in dB(A). The MP34DT05 output is dominated by sub-60 Hz drift,
+// so it goes through an A-weighting filter (two biquads, bilinear at 16 kHz;
+// the 12.2 kHz poles are above Nyquist and omitted) before the RMS.
+// Calibration from datasheets: MP34DT05 -26 dBFS @ 94 dB SPL, nRF52840 PDM
+// module gain +3.2 dB ("2500 RMS"), Arduino PDM default gain setting -10 dB:
+// 94 dB SPL -> -32.35 dBFS, so dB SPL = dBFS + 126.35. Typical accuracy of an
+// uncalibrated MEMS mic is +/-3 dB; MIC_CAL_DB trims it against a reference meter.
+const float MIC_FS     = 16000.0f;
+const float MIC_REF_DB = 126.35f;
+const float MIC_CAL_DB = 0.0f;
 short micBuf[256];
 volatile float micSumSq = 0;
 volatile uint32_t micCount = 0;
+uint32_t micSettle = 8000;            // skip the filter start-up (0.5 s)
+struct Biquad { float b0, b1, b2, a1, a2, z1, z2; };
+Biquad aw[2];
+float awGain = 1;
+
+// raw capture for diagnostics (USB command "M"): 4096 samples = 256 ms
+const int RAW_N = 4096;
+int16_t rawMic[RAW_N];
+volatile int rawFill = -1;            // -1 idle, 0..RAW_N-1 filling, RAW_N ready
 
 // ------------------------------------------------------------------ piezo --
 float pzPeak = 0, pzSumSq = 0;
@@ -285,20 +305,55 @@ void readMLX90614() {
   }
 }
 
-// PDM callback (interrupt context): accumulate AC energy per block
+// Analog high-pass section s^2 / (s^2 + a1 s + a0) -> digital biquad (bilinear)
+// (computed in double once: the 20 Hz poles sit at r = 0.992, close to z = 1)
+Biquad bilinearHP(double a1, double a0) {
+  const double K = 2.0 * MIC_FS, d = K * K + a1 * K + a0;
+  return { (float)(K * K / d), (float)(-2 * K * K / d), (float)(K * K / d),
+           (float)((2 * a0 - 2 * K * K) / d), (float)((K * K - a1 * K + a0) / d), 0, 0 };
+}
+
+float biquadGainAt(const Biquad &q, float f) {
+  float w = 2 * PI * f / MIC_FS, c1 = cosf(w), s1 = sinf(w), c2 = cosf(2 * w), s2 = sinf(2 * w);
+  float nr = q.b0 + q.b1 * c1 + q.b2 * c2, ni = -(q.b1 * s1 + q.b2 * s2);
+  float dr = 1 + q.a1 * c1 + q.a2 * c2, di = -(q.a1 * s1 + q.a2 * s2);
+  return sqrtf((nr * nr + ni * ni) / (dr * dr + di * di));
+}
+
+void initAWeighting() {
+  const double w1 = 2 * PI * 20.598997, w2 = 2 * PI * 107.65265, w3 = 2 * PI * 737.86223;
+  aw[0] = bilinearHP(2 * w1, w1 * w1);
+  aw[1] = bilinearHP(w2 + w3, w2 * w3);
+  awGain = 1 / (biquadGainAt(aw[0], 1000) * biquadGainAt(aw[1], 1000));  // 0 dB at 1 kHz
+}
+
+inline float biquadRun(Biquad &q, float x) {  // transposed direct form II
+  float y = q.b0 * x + q.z1;
+  q.z1 = q.b1 * x - q.a1 * y + q.z2;
+  q.z2 = q.b2 * x - q.a2 * y;
+  return y;
+}
+
+// PDM callback (interrupt context): A-weight every sample, accumulate energy
 void onPDMdata() {
   int bytes = PDM.available();
   if (bytes > (int)sizeof(micBuf)) bytes = sizeof(micBuf);
   PDM.read(micBuf, bytes);
   int n = bytes / 2;
   if (n <= 0) return;
-  float mean = 0;
-  for (int i = 0; i < n; i++) mean += micBuf[i];
-  mean /= n;
+  if (rawFill >= 0 && rawFill < RAW_N) {
+    int k = min(n, RAW_N - rawFill);
+    memcpy(rawMic + rawFill, micBuf, k * sizeof(int16_t));
+    rawFill += k;
+  }
   float s = 0;
   for (int i = 0; i < n; i++) {
-    float d = micBuf[i] - mean;
-    s += d * d;
+    float y = biquadRun(aw[1], biquadRun(aw[0], micBuf[i])) * awGain;
+    s += y * y;
+  }
+  if (micSettle > 0) {
+    micSettle = micSettle > (uint32_t)n ? micSettle - n : 0;
+    return;
   }
   micSumSq += s;
   micCount += n;
@@ -311,7 +366,7 @@ void readMic() {
   micSumSq = 0;
   micCount = 0;
   interrupts();
-  env.sound = (n > 0 && s > 0) ? 10.0f * log10f(s / n / (32768.0f * 32768.0f)) : NAN;
+  env.sound = (n > 0 && s > 0) ? 10.0f * log10f(s / n / (32768.0f * 32768.0f)) + MIC_REF_DB + MIC_CAL_DB : NAN;
 }
 
 void pollPiezo() {
@@ -630,6 +685,7 @@ void handleSerial() {
       line[len] = 0;
       if ((line[0] == 'C' || line[0] == 'c') && len >= 2) runCommand(1, line[1] - '0');
       else if (line[0] == 'I' || line[0] == 'i') runCommand(2, 0);
+      else if ((line[0] == 'M' || line[0] == 'm') && rawFill < 0) rawFill = 0;
       len = 0;
     } else if (len < sizeof(line) - 1) {
       line[len++] = c;
@@ -687,6 +743,7 @@ void setup() {
   hasMLX = probe(Wire, ADDR_MLX90614);
   if (hasIMU) imuThread.start(imuTask);
 
+  initAWeighting();
   PDM.onReceive(onPDMdata);
   hasMic = PDM.begin(1, 16000);
 
@@ -731,6 +788,19 @@ void loop() {
   bool usb = Serial;
   if (usb && !wasConnected) printBanner();
   wasConnected = usb;
+
+  if (rawFill == RAW_N) {  // dump the raw capture, 256 samples per '#R' line
+    for (int i = 0; i < RAW_N; i += 256) {
+      json = "#R ";
+      for (int j = i; j < i + 256; j++) {
+        if (j > i) json += ',';
+        json += rawMic[j];
+      }
+      json += "\r\n";
+      Serial.write((const uint8_t *)json.c_str(), json.length());
+    }
+    rawFill = -1;
+  }
 
   // publish once per analysis window (or once a second without an IMU)
   bool windowReady = hasIMU ? nSamples >= FFT_N : millis() - lastPublish >= 1000;

@@ -28,7 +28,7 @@ Every ~1.1 s:
   - acceleration RMS and peak
   - the dominant frequency
   - a 64-band velocity spectrum
-- **Sound.** Level from the on-board PDM microphone, in dBFS. It is relative and uncalibrated.
+- **Sound.** A-weighted sound level in dB(A) from the on-board PDM microphone. The calibration comes from the datasheets and is approximate (±3 dB); `MIC_CAL_DB` trims it against a reference meter.
 - **Inside the enclosure.** Temperature and humidity (HTS221) and pressure (LPS22HB).
 - **Surface temperature** (optional). An MLX90614 IR thermometer looks through the side window and is detected automatically when plugged in.
 - **Contact / impacts** (optional). A piezo disc on the machine face.
@@ -50,13 +50,13 @@ Every ~1.1 s:
 
 1. Install the Arduino IDE. In Boards Manager, add **Arduino Mbed OS Nano Boards** (tested with 4.6.0). In Library Manager, add **ArduinoBLE** (tested with 2.1.0). `PDM` and `Wire` come with the board package.
 2. Open `firmware/MANTIS/MANTIS.ino`, choose **Arduino Nano 33 BLE** and the board's port, then upload.
-3. Settings are at the top of the file: `PIEZO_ENABLED`, `PIEZO_PIN`, `PIEZO_IMPACT_MV` and the default `isoClass`.
+3. Settings are at the top of the file: `PIEZO_ENABLED`, `PIEZO_PIN`, `PIEZO_IMPACT_MV`, the default `isoClass`, and `MIC_CAL_DB`.
 
 Outputs:
 
 - **BLE:** advertises as `MANTIS`, service `4d414e54-4953-4e53-5045-435400000000`. The full packet layout is documented in the header of `MANTIS.ino`.
 - **USB serial (115200):** one JSON line per measurement window. Lines starting with `#` are human-readable.
-- **Commands:** over USB, `C1`…`C4` set the ISO class and `I` blinks the LED. The same commands go over BLE through the control characteristic.
+- **Commands:** over USB, `C1`…`C4` set the ISO class, `I` blinks the LED, and `M` dumps 4096 raw microphone samples for diagnostics. The same commands go over BLE through the control characteristic.
 - **On-board LED:** shows the zone colour. It blinks while waiting for a connection and stays solid once connected. Blue means no data yet.
 
 ## Enclosure

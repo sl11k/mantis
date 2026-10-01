@@ -153,6 +153,12 @@ main { max-width: 1280px; margin: 0 auto; padding: 20px 24px 56px; }
 .toolbar { display: flex; align-items: center; gap: 12px; margin: 4px 0 12px; flex-wrap: wrap; }
 .toolbar label { font-size: 13.5px; color: var(--ink-2); }
 
+/* -------------------------------------------------------------- BLE help */
+.help { max-width: 720px; margin: 0 auto 16px; }
+.help ol { padding-inline-start: 22px; margin: 0 0 14px; }
+.help li { margin-bottom: 8px; }
+.help .actions { margin-top: 4px; }
+
 /* ------------------------------------------------------------ empty state */
 .empty { max-width: 720px; margin: 48px auto; text-align: start; }
 .empty h1 { font-size: 24px; margin: 0 0 6px; }
@@ -291,6 +297,24 @@ td { font-variant-numeric: tabular-nums; }
 </header>
 
 <main>
+  <section class="card help" id="bleHelp" hidden aria-labelledby="hHelp">
+    <div class="card-head">
+      <h2 id="hHelp" data-i18n="help_title"></h2>
+      <button class="btn icon" id="helpClose" data-i18n-title="close">✕</button>
+    </div>
+    <ol>
+      <li data-i18n="help_1"></li>
+      <li data-i18n="help_2"></li>
+      <li data-i18n="help_3"></li>
+      <li data-i18n="help_4"></li>
+      <li data-i18n="help_5"></li>
+    </ol>
+    <div class="actions">
+      <button class="btn primary" data-act="ble" data-i18n="try_again"></button>
+      <button class="btn" id="btnBleAll" data-i18n="show_all"></button>
+    </div>
+  </section>
+
   <section class="empty card" id="emptyState">
     <h1 data-i18n="empty_title"></h1>
     <p class="ink2" data-i18n="empty_intro"></p>
@@ -433,7 +457,8 @@ const I18N = {
     ir: 'حرارة السطح (IR)', ir_sub: 'المحيط {amb}', ir_missing: 'غير موصول', ir_hint: 'وصّل MLX90614 على A4/A5',
     int_temp: 'حرارة داخل الجهاز', int_sub: 'الرطوبة {rh}',
     pressure: 'الضغط الجوي', pressure_sub: 'داخل الجهاز',
-    sound: 'مستوى الصوت', sound_sub: 'نسبي (غير معاير)',
+    sound: 'مستوى الصوت', sound_sub: '{level} · تقريبي ±3',
+    snd_quiet: 'هادئ', snd_normal: 'عادي', snd_loud: 'مرتفع', snd_danger: 'خطر على السمع، استخدم واقي أذن',
     piezo: 'حساس التلامس (بيزو)', piezo_sub: 'الصدمات: {n} · RMS {rms}', piezo_off: 'غير مفعّل', piezo_hint: 'فعّله من PIEZO_ENABLED في الكود',
     range: 'النطاق الزمني', r1: 'دقيقة', r5: '5 دقائق', r15: '15 دقيقة', r60: 'ساعة',
     spectrum: 'طيف الاهتزاز', spectrum_sub: 'سرعة الاهتزاز حسب التردد، المحور {axis}',
@@ -450,11 +475,19 @@ const I18N = {
     src_ble: 'بلوتوث', src_usb: 'USB', src_demo: 'تجريبي',
     no_ble: 'متصفحك لا يدعم Web Bluetooth. استخدم Chrome أو Edge على الكمبيوتر أو أندرويد.',
     no_ble_ios: 'متصفح Safari في الآيفون لا يدعم البلوتوث من صفحات الويب. حمّل تطبيق Bluefy من App Store وافتح الرابط منه.',
+    help_title: 'ما ظهر MANTIS في القائمة؟', close: 'إغلاق',
+    help_1: 'لا تدوّره في إعدادات البلوتوث بالجوال. الاتصال يتم من هذي الصفحة بزر «اتصال بلوتوث» وبدون اقتران.',
+    help_2: 'في أندرويد: شغّل الموقع (GPS)، وتأكد إن Chrome عنده صلاحية «الأجهزة القريبة» (الإعدادات ← التطبيقات ← Chrome ← الأذونات).',
+    help_3: 'الجهاز يقبل اتصال واحد فقط: إذا الصفحة مفتوحة ومتصلة في الكمبيوتر، اضغط فيها «قطع الاتصال» أو سكّرها.',
+    help_4: 'تأكد إن لمبة الجهاز تومض (يعني جاهز) وقرّب الجوال منه.',
+    help_5: 'في الآيفون: افتح الرابط من تطبيق Bluefy، مو من Safari.',
+    try_again: 'حاول مرة ثانية', show_all: 'عرض كل الأجهزة القريبة',
+    not_mantis: 'الجهاز اللي اخترته مو MANTIS. اختر الجهاز اللي اسمه MANTIS.',
     no_serial: 'متصفحك لا يدعم Web Serial. استخدم Chrome أو Edge على الكمبيوتر.',
     ble_off: 'البلوتوث مقفل في الجهاز. شغّله من الإعدادات ثم حاول مرة ثانية.',
     err_conn: 'تعذر الاتصال: {msg}', identify_sent: 'راقب لمبة الجهاز: بتومض أبيض 3 ثواني.',
     exported: 'تم تصدير {n} قراءة', cleared: 'تم مسح البيانات', demo_note: 'هذه بيانات تجريبية وليست من جهاز حقيقي.',
-    u_mms: 'مم/ث', u_mg: 'mg', u_hz: 'هرتز', u_c: '°م', u_hpa: 'هكتوباسكال', u_db: 'dBFS', u_mv: 'مللي فولت', u_rpm: 'دورة/د',
+    u_mms: 'مم/ث', u_mg: 'mg', u_hz: 'هرتز', u_c: '°م', u_hpa: 'هكتوباسكال', u_db: 'dB(A)', u_mv: 'مللي فولت', u_rpm: 'دورة/د',
     s_imu: 'الاهتزاز', s_hts: 'الحرارة والرطوبة', s_lps: 'الضغط', s_mic: 'الميكروفون', s_mlx: 'حرارة IR', s_pz: 'البيزو',
     on: 'يعمل', off: 'غير موصول',
   },
@@ -489,7 +522,8 @@ const I18N = {
     ir: 'Surface temperature (IR)', ir_sub: 'Ambient {amb}', ir_missing: 'Not connected', ir_hint: 'Wire an MLX90614 to A4/A5',
     int_temp: 'Temperature inside device', int_sub: 'Humidity {rh}',
     pressure: 'Air pressure', pressure_sub: 'Inside the device',
-    sound: 'Sound level', sound_sub: 'Relative (uncalibrated)',
+    sound: 'Sound level', sound_sub: '{level} · approx. ±3',
+    snd_quiet: 'Quiet', snd_normal: 'Normal', snd_loud: 'Loud', snd_danger: 'Hearing hazard, wear ear protection',
     piezo: 'Contact sensor (piezo)', piezo_sub: 'Impacts: {n} · RMS {rms}', piezo_off: 'Disabled', piezo_hint: 'Enable PIEZO_ENABLED in the firmware',
     range: 'Time range', r1: '1 min', r5: '5 min', r15: '15 min', r60: '1 hour',
     spectrum: 'Vibration spectrum', spectrum_sub: 'Velocity by frequency, {axis} axis',
@@ -506,11 +540,19 @@ const I18N = {
     src_ble: 'Bluetooth', src_usb: 'USB', src_demo: 'demo',
     no_ble: 'This browser has no Web Bluetooth. Use Chrome or Edge on desktop or Android.',
     no_ble_ios: 'Safari on iPhone cannot use Bluetooth from web pages. Install the Bluefy app from the App Store and open this link in it.',
+    help_title: 'MANTIS didn’t show up in the list?', close: 'Close',
+    help_1: 'Don’t look for it in the phone’s Bluetooth settings. You connect from this page with “Connect Bluetooth”; no pairing is needed.',
+    help_2: 'On Android: turn on Location, and make sure Chrome has the “Nearby devices” permission (Settings → Apps → Chrome → Permissions).',
+    help_3: 'The device accepts one connection at a time: if this page is open and connected on a computer, press “Disconnect” there or close it.',
+    help_4: 'Check that the device LED is blinking (ready to connect) and move the phone closer.',
+    help_5: 'On iPhone: open the link in the Bluefy app, not Safari.',
+    try_again: 'Try again', show_all: 'Show all nearby devices',
+    not_mantis: 'That device isn’t MANTIS. Pick the one named MANTIS.',
     no_serial: 'This browser has no Web Serial. Use Chrome or Edge on desktop.',
     ble_off: 'Bluetooth is turned off on this computer. Turn it on and try again.',
     err_conn: 'Could not connect: {msg}', identify_sent: 'Watch the device LED: it flashes white for 3 seconds.',
     exported: 'Exported {n} readings', cleared: 'Data cleared', demo_note: 'This is simulated data, not from a real device.',
-    u_mms: 'mm/s', u_mg: 'mg', u_hz: 'Hz', u_c: '°C', u_hpa: 'hPa', u_db: 'dBFS', u_mv: 'mV', u_rpm: 'RPM',
+    u_mms: 'mm/s', u_mg: 'mg', u_hz: 'Hz', u_c: '°C', u_hpa: 'hPa', u_db: 'dB(A)', u_mv: 'mV', u_rpm: 'RPM',
     s_imu: 'Vibration', s_hts: 'Temp & humidity', s_lps: 'Pressure', s_mic: 'Microphone', s_mlx: 'IR temp', s_pz: 'Piezo',
     on: 'OK', off: 'Not connected',
   },
@@ -663,22 +705,36 @@ function onBleSpec(e) {
   }
 }
 
-async function connectBle() {
-  if (!navigator.bluetooth) return toast(t('no_ble'));
+// showAll: list every nearby BLE device instead of filtering for MANTIS
+// (fallback for phones whose scanner misses the service UUID or name)
+async function connectBle(showAll) {
+  if (!navigator.bluetooth) return toast(t(/iPhone|iPad|iPod/.test(navigator.userAgent) ? 'no_ble_ios' : 'no_ble'));
+  let device;
   try {
     if (navigator.bluetooth.getAvailability && !(await navigator.bluetooth.getAvailability())) return toast(t('ble_off'));
-    const device = await navigator.bluetooth.requestDevice({
-      filters: [{ services: [SVC] }, { name: 'MANTIS' }],
-      optionalServices: [SVC],
-    });
+    device = await navigator.bluetooth.requestDevice(showAll === true
+      ? { acceptAllDevices: true, optionalServices: [SVC] }
+      : { filters: [{ services: [SVC] }, { name: 'MANTIS' }], optionalServices: [SVC] });
+  } catch (err) {
+    // chooser closed without a device: often because MANTIS never showed up
+    if (err && err.name === 'NotFoundError') { $('#bleHelp').hidden = false; return; }
+    return toast(t('err_conn', { msg: err && err.message ? err.message : err }));
+  }
+  $('#bleHelp').hidden = true;
+  try {
     await stopSource();
     state.ble = { device, ctrl: null, userClosed: false, retries: 0 };
     device.addEventListener('gattserverdisconnected', onBleGone);
     await bleAttach();
   } catch (err) {
-    if (err && err.name === 'NotFoundError') return; // chooser cancelled
+    const notMantis = err && err.name === 'NotFoundError';
+    if (state.ble && state.ble.device === device) {
+      state.ble.userClosed = true;
+      state.ble = null;
+      try { device.gatt.disconnect(); } catch (e) { /* not connected */ }
+    }
     setConn(state.source ? 'live' : 'off');
-    toast(t('err_conn', { msg: err && err.message ? err.message : err }));
+    toast(notMantis ? t('not_mantis') : t('err_conn', { msg: err && err.message ? err.message : err }));
   }
 }
 
@@ -828,7 +884,7 @@ function demoReading(tSec, seq, time) {
       time, seq, vel, arms, apk: arms * (3.0 + Math.random() * 0.4), f: f1, fv: vel * 0.78, axis: 2,
       t: 31.2 + 0.4 * Math.sin(tSec / 200) + rnd() * 0.05, rh: 29.4 + rnd() * 0.2, p: 943.6 + rnd() * 0.1,
       ir: 46.5 + surge * 6 + 1.2 * Math.sin(tSec / 140) + rnd() * 0.1, ira: 33.1 + rnd() * 0.05,
-      snd: -39 + surge * 5 + rnd() * 1.2, pzp: null, pzr: null, pzi: null, up: Math.round(tSec), cls: state.isoClass,
+      snd: 71 + surge * 5 + rnd() * 1.2, pzp: null, pzr: null, pzi: null, up: Math.round(tSec), cls: state.isoClass,
       sens: decodeSens(0x1F), overrun: false,
     },
     spectrum: { bands: spec, fs, axis: 2, f: f1, fv: vel * 0.78 },
@@ -1074,8 +1130,10 @@ function renderTiles(r) {
   }
   box.append(tile(t('int_temp'), r.t == null ? null : fmt(r.t, 1), t('u_c'), r.rh == null ? '' : t('int_sub', { rh: fmt(r.rh, 0) + '%' }), sparkline(col('t'))));
   box.append(tile(t('pressure'), r.p == null ? null : fmt(r.p, 1), t('u_hpa'), t('pressure_sub'), sparkline(col('p'))));
-  const meter = r.snd == null ? null : Math.max(0, Math.min(100, ((r.snd + 90) / 70) * 100));
-  box.append(tile(t('sound'), r.snd == null ? null : fmt(r.snd, 1), t('u_db'), t('sound_sub'), sparkline(col('snd')), { meter }));
+  // dB(A): meter spans 30-100; 85 dB(A) is the occupational hearing-protection limit
+  const meter = r.snd == null ? null : Math.max(0, Math.min(100, ((r.snd - 30) / 70) * 100));
+  const sndLevel = r.snd == null ? '' : t(r.snd < 45 ? 'snd_quiet' : r.snd < 65 ? 'snd_normal' : r.snd < 85 ? 'snd_loud' : 'snd_danger');
+  box.append(tile(t('sound'), r.snd == null ? null : fmt(r.snd, 0), t('u_db'), r.snd == null ? '' : t('sound_sub', { level: sndLevel }), sparkline(col('snd')), { meter }));
   if (s.pz && r.pzp != null) {
     box.append(tile(t('piezo'), fmt(r.pzp, 0), t('u_mv'), t('piezo_sub', { n: fmtInt(r.pzi), rms: fmt(r.pzr, 0) }), sparkline(col('pzp'))));
   } else {
@@ -1366,7 +1424,7 @@ function toast(msg) {
 // -------------------------------------------------------------- export ---
 function exportCsv() {
   const cols = ['time', 'seq', 'vel_mm_s', 'zone', 'acc_rms_mg', 'acc_peak_mg', 'crest', 'dom_freq_hz', 'dom_vel_mm_s', 'axis',
-    'ir_object_c', 'ir_ambient_c', 'internal_temp_c', 'humidity_pct', 'pressure_hpa', 'sound_dbfs', 'piezo_peak_mv', 'piezo_rms_mv', 'piezo_impacts'];
+    'ir_object_c', 'ir_ambient_c', 'internal_temp_c', 'humidity_pct', 'pressure_hpa', 'sound_dba', 'piezo_peak_mv', 'piezo_rms_mv', 'piezo_impacts'];
   const val = (v, d) => (v == null || Number.isNaN(v) ? '' : d == null ? v : Number(v).toFixed(d));
   const rows = state.readings.map((x) => [new Date(x.time).toISOString(), x.seq, val(x.vel, 3), x.vel == null ? '' : STATUS[zoneOf(x.vel)].key,
     val(x.arms, 1), val(x.apk, 1), val(x.crest, 2), val(x.f, 1), val(x.fv, 3), x.axis == null ? '' : 'XYZ'[x.axis],
@@ -1400,11 +1458,13 @@ function applyTheme() {
 }
 
 // ------------------------------------------------------------ wiring ---
-$('#btnBle').onclick = connectBle;
+$('#btnBle').onclick = () => connectBle(false);
+$('#btnBleAll').onclick = () => connectBle(true);
+$('#helpClose').onclick = () => { $('#bleHelp').hidden = true; };
 $('#btnUsb').onclick = connectUsb;
 $('#btnDemo').onclick = startDemo;
 for (const b of document.querySelectorAll('[data-act]')) {
-  b.onclick = { ble: connectBle, usb: connectUsb, demo: startDemo }[b.dataset.act];
+  b.onclick = { ble: () => connectBle(false), usb: connectUsb, demo: startDemo }[b.dataset.act];
 }
 $('#btnDisconnect').onclick = async () => {
   const had = state.source && state.source !== 'demo';
