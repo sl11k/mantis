@@ -1,7 +1,7 @@
 {
   "name": "MANTIS - فحص الآلات",
   "short_name": "MANTIS",
-  "description": "Live machine inspection: vibration (ISO 10816), temperature and sound from a MANTIS device over Bluetooth LE",
+  "description": "Machine inspection: live vibration (ISO 10816), temperature and sound from a MANTIS device, saved measurements per machine, baseline trends and reports",
   "lang": "ar",
   "dir": "rtl",
   "start_url": "./",
@@ -10,6 +10,10 @@
   "orientation": "any",
   "background_color": "#f9f9f7",
   "theme_color": "#0b0b0b",
+  "shortcuts": [
+    { "name": "تسجيل قياس", "short_name": "قياس", "url": "./#live", "icons": [{ "src": "icon-192.png", "sizes": "192x192", "type": "image/png" }] },
+    { "name": "المعدات", "short_name": "المعدات", "url": "./#machines", "icons": [{ "src": "icon-192.png", "sizes": "192x192", "type": "image/png" }] }
+  ],
   "icons": [
     { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
     { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },

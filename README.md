@@ -77,5 +77,10 @@ Then press **Connect Bluetooth** and pick **MANTIS**. It can be added to the hom
 offline after the first visit. For USB or local development, run `node app/serve.js` and open
 http://localhost:8765. See [`app/README.md`](app/README.md).
 
+Beyond the live view it is an inspection log: add each machine (name, location, ISO class, RPM),
+record a steady 10–30 s measurement for it, and the app compares every measurement against that
+machine's baseline, flags rises of 25 % or more, gives spectrum-based fault hints, and prints a PDF
+report per machine or for the whole route. Data stays on the device; back it up from the Device tab.
+
 After live data arrives, press **Create first reading** to save the next real measurement on this
 browser. The completion summary remains after a page reload. Demo data cannot create it.

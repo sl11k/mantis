@@ -2,19 +2,23 @@
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>MANTIS</title>
-<meta name="description" content="MANTIS machine inspection dashboard - live vibration, temperature and acoustic readings over Bluetooth LE or USB">
+<meta name="description" content="MANTIS machine inspection - live vibration, temperature and sound over Bluetooth LE or USB, saved measurements per machine, baseline trends and reports">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/png" href="icon-192.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="theme-color" content="#f9f9f7" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0d0d0d" media="(prefers-color-scheme: dark)">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap">
 <style>
 :root {
   color-scheme: light;
   --page: #f9f9f7;
   --surface: #fcfcfb;
+  --raised: #ffffff;
   --ink: #0b0b0b;
   --ink-2: #52514e;
   --muted: #898781;
@@ -31,14 +35,15 @@
   --warning: #fab219;
   --serious: #ec835a;
   --critical: #d03b3b;
-  --radius: 14px;
-  font-family: system-ui, -apple-system, "Segoe UI", Tahoma, sans-serif;
+  --radius: 16px;
+  font-family: "IBM Plex Sans Arabic", system-ui, -apple-system, "Segoe UI", Tahoma, sans-serif;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     color-scheme: dark;
     --page: #0d0d0d;
     --surface: #1a1a19;
+    --raised: #222220;
     --ink: #ffffff;
     --ink-2: #c3c2b7;
     --muted: #898781;
@@ -57,6 +62,7 @@
   color-scheme: dark;
   --page: #0d0d0d;
   --surface: #1a1a19;
+  --raised: #222220;
   --ink: #ffffff;
   --ink-2: #c3c2b7;
   --muted: #898781;
@@ -77,117 +83,169 @@ body {
   background: var(--page);
   color: var(--ink);
   font-size: 15px;
-  line-height: 1.5;
+  line-height: 1.55;
   -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
 }
-button, select { font: inherit; color: inherit; }
-.num { direction: ltr; unicode-bidi: isolate; }
+button, select, input, textarea { font: inherit; color: inherit; }
+.num { direction: ltr; unicode-bidi: isolate; font-variant-numeric: tabular-nums; }
 .muted { color: var(--muted); }
 .ink2 { color: var(--ink-2); }
 [hidden] { display: none !important; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
-/* ---------------------------------------------------------------- top bar */
-.topbar {
-  position: sticky; top: 0; z-index: 10;
-  display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
-  padding: 12px 24px;
-  background: color-mix(in srgb, var(--page) 88%, transparent);
-  backdrop-filter: blur(10px);
-  border-bottom: 1px solid var(--border);
-}
-.brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
-.brand svg { flex: none; }
-.brand strong { display: block; font-size: 17px; letter-spacing: 0.06em; }
-.brand span { display: block; font-size: 12.5px; color: var(--ink-2); }
-.actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+/* ------------------------------------------------------------- controls */
 .btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-  height: 36px; padding: 0 14px; border-radius: 10px;
+  height: 38px; padding: 0 14px; border-radius: 10px;
   border: 1px solid var(--border); background: var(--surface); cursor: pointer;
-  font-size: 14px; font-weight: 500; white-space: nowrap;
+  font-size: 14px; font-weight: 500; white-space: nowrap; text-decoration: none;
 }
 .btn:hover { background: var(--hover); }
-.btn:focus-visible, select:focus-visible { outline: 2px solid var(--series); outline-offset: 2px; }
+.btn:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-visible, a:focus-visible, .mrow:focus-visible {
+  outline: 2px solid var(--series); outline-offset: 2px;
+}
 .btn.primary { background: var(--btn-bg); color: var(--btn-ink); border-color: transparent; }
 .btn.primary:hover { opacity: 0.88; }
-.btn.icon { width: 36px; padding: 0; }
+.btn.icon { width: 38px; padding: 0; }
+.btn.sm { height: 32px; padding: 0 10px; font-size: 13px; border-radius: 8px; }
+.btn.lg { height: 50px; font-size: 16px; border-radius: 12px; padding: 0 20px; }
+.btn.danger { color: var(--critical); }
 .btn:disabled { opacity: 0.45; cursor: not-allowed; }
-.pill {
-  display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 12px;
-  border-radius: 999px; border: 1px solid var(--border); font-size: 13.5px; color: var(--ink-2);
+.btn svg { flex: none; }
+select, input[type="text"], input[type="number"], input[type="search"], textarea {
+  height: 38px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface);
+  padding: 0 10px; font-size: 14px; max-width: 100%;
 }
+textarea { height: auto; min-height: 64px; padding: 8px 10px; resize: vertical; width: 100%; }
 .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex: none; }
 .dot.good { background: var(--good); }
 .dot.warning { background: var(--warning); }
 .dot.serious { background: var(--serious); }
 .dot.pulse { animation: pulse 1.2s ease-in-out infinite; }
 @keyframes pulse { 50% { opacity: 0.3; } }
-
-/* ----------------------------------------------------------------- layout */
-main { max-width: 1280px; margin: 0 auto; padding: 20px 24px 56px; }
-.row { display: grid; gap: 16px; margin-bottom: 16px; }
-.row.hero { grid-template-columns: minmax(0, 1.65fr) minmax(0, 1fr); }
-.row.two { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
-.row.tiles { grid-template-columns: repeat(auto-fit, minmax(178px, 1fr)); }
-@media (max-width: 960px) { .row.hero, .row.two { grid-template-columns: minmax(0, 1fr); } }
-@media (max-width: 640px) {
-  .topbar { padding: 10px 16px; position: static; }
-  .btn { padding: 0 12px; }
-  main { padding: 16px 16px 48px; }
-  .brand span { display: none; }
-}
-.card {
-  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
-  padding: 18px 20px; min-width: 0;
-}
-.card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
-.card-head h2 { margin: 0; font-size: 15px; font-weight: 600; }
-.card-head p { margin: 2px 0 0; font-size: 13px; color: var(--ink-2); }
-.seg { display: inline-flex; border: 1px solid var(--border); border-radius: 9px; padding: 2px; gap: 2px; flex: none; }
+.seg { display: inline-flex; border: 1px solid var(--border); border-radius: 10px; padding: 2px; gap: 2px; flex: none; flex-wrap: wrap; }
 .seg button {
-  border: 0; background: transparent; height: 28px; padding: 0 10px; border-radius: 7px;
+  border: 0; background: transparent; height: 30px; padding: 0 11px; border-radius: 8px;
   cursor: pointer; font-size: 13px; color: var(--ink-2);
 }
 .seg button:hover { background: var(--hover); }
 .seg button[aria-pressed="true"] { background: var(--btn-bg); color: var(--btn-ink); }
-.toolbar { display: flex; align-items: center; gap: 12px; margin: 4px 0 12px; flex-wrap: wrap; }
-.toolbar label { font-size: 13.5px; color: var(--ink-2); }
 
-/* -------------------------------------------------------------- BLE help */
-.help { max-width: 720px; margin: 0 auto 16px; }
-.help ol { padding-inline-start: 22px; margin: 0 0 14px; }
-.help li { margin-bottom: 8px; }
-.help .actions { margin-top: 4px; }
-
-/* ------------------------------------------------------------ empty state */
-.empty { max-width: 720px; margin: 48px auto; text-align: start; }
-.empty h1 { font-size: 24px; margin: 0 0 6px; }
-.empty ol { padding-inline-start: 22px; margin: 16px 0; }
-.empty li { margin-bottom: 8px; }
-.empty .actions { margin-top: 18px; }
-.note { font-size: 13.5px; color: var(--ink-2); }
-.first-reading { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
-.first-reading p { margin: 4px 0 0; }
-
-/* -------------------------------------------------------------------- hero */
-.status-chip {
-  display: inline-flex; align-items: center; gap: 8px; height: 32px; padding: 0 12px 0 6px;
-  border-radius: 999px; font-weight: 600; font-size: 14px;
+/* status chip: colour always travels with an icon and a label */
+.chip {
+  display: inline-flex; align-items: center; gap: 7px; height: 30px; padding: 0 12px 0 4px;
+  border-radius: 999px; font-weight: 600; font-size: 14px; white-space: nowrap;
   background: color-mix(in srgb, var(--st, var(--muted)) 16%, transparent);
 }
-[dir="rtl"] .status-chip { padding: 0 6px 0 12px; }
-.status-chip .ic {
-  width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center;
-  background: var(--st, var(--muted)); color: var(--st-ink, #fff); font-size: 13px; font-weight: 700;
+[dir="rtl"] .chip { padding: 0 4px 0 12px; }
+.chip.sm { height: 24px; font-size: 12.5px; gap: 5px; padding: 0 9px 0 3px; }
+[dir="rtl"] .chip.sm { padding: 0 3px 0 9px; }
+.ic {
+  width: 22px; height: 22px; border-radius: 50%; display: inline-grid; place-items: center; flex: none;
+  background: var(--st, var(--muted)); color: var(--st-ink, #fff); font-size: 12px; font-weight: 700; line-height: 1;
 }
-.hero-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.chip.sm .ic { width: 18px; height: 18px; font-size: 10.5px; }
+.chips { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.tag { font-size: 11.5px; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--border); color: var(--ink-2); white-space: nowrap; }
+.tag.demo { border-style: dashed; }
+
+/* -------------------------------------------------------- header + tabs */
+.chrome { position: sticky; top: 0; z-index: 20; }
+.topbar {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 24px; padding-top: max(10px, env(safe-area-inset-top));
+  background: color-mix(in srgb, var(--page) 88%, transparent);
+  -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+}
+.brand { display: flex; align-items: center; gap: 10px; min-width: 0; color: inherit; text-decoration: none; }
+.brand svg { flex: none; }
+.brand strong { display: block; font-size: 17px; letter-spacing: 0.06em; line-height: 1.2; }
+.brand span { display: block; font-size: 12px; color: var(--ink-2); line-height: 1.3; }
+.spacer { flex: 1; }
+.live-mini {
+  display: inline-flex; align-items: center; gap: 7px; height: 36px; padding: 0 12px 0 6px; border: 0; cursor: pointer;
+  border-radius: 999px; font-weight: 600; font-size: 14px; white-space: nowrap;
+  background: color-mix(in srgb, var(--st, var(--muted)) 16%, transparent);
+}
+[dir="rtl"] .live-mini { padding: 0 6px 0 12px; }
+.live-mini .u { font-weight: 400; font-size: 12px; color: var(--ink-2); }
+.pill {
+  display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 12px; background: transparent; cursor: pointer;
+  border-radius: 999px; border: 1px solid var(--border); font-size: 13.5px; color: var(--ink-2); white-space: nowrap;
+}
+.pill:hover { background: var(--hover); }
+.pill.demo { border: 1.5px dashed var(--warning); color: var(--ink); }
+.pill .short { display: none; }
+.tabs {
+  display: flex; gap: 2px; padding: 0 20px;
+  background: color-mix(in srgb, var(--page) 88%, transparent);
+  -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+}
+.tabs a {
+  position: relative; display: inline-flex; align-items: center; gap: 8px; height: 44px; padding: 0 12px;
+  color: var(--ink-2); text-decoration: none; font-size: 14px; font-weight: 500;
+  border-bottom: 2px solid transparent; margin-bottom: -1px;
+}
+.tabs a:hover { color: var(--ink); }
+.tabs a[aria-current="page"] { color: var(--ink); border-bottom-color: var(--ink); }
+.tabs .ti { display: grid; place-items: center; }
+.tabs svg { width: 18px; height: 18px; }
+.badge-n {
+  min-width: 18px; height: 18px; border-radius: 9px; padding: 0 5px; display: inline-grid; place-items: center;
+  background: var(--critical); color: #fff; font-size: 11px; font-weight: 700; line-height: 1;
+}
+
+/* ----------------------------------------------------------------- layout */
+main { max-width: 1280px; margin: 0 auto; padding: 20px 24px 56px; }
+.row { display: grid; gap: 16px; margin-bottom: 16px; }
+.row.hero { grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); }
+.row.two { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.row.tiles { grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); }
+@media (max-width: 960px) { .row.hero, .row.two { grid-template-columns: minmax(0, 1fr); } }
+.card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 18px 20px; min-width: 0;
+}
+.card + .card { margin-top: 16px; }
+.row > .card + .card { margin-top: 0; }
+.card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+.card-head h2 { margin: 0; font-size: 15px; font-weight: 600; }
+.card-head p { margin: 2px 0 0; font-size: 13px; color: var(--ink-2); }
+.toolbar { display: flex; align-items: center; gap: 12px; margin: 0 0 14px; flex-wrap: wrap; }
+.toolbar label { font-size: 13.5px; color: var(--ink-2); }
+.note { font-size: 13.5px; color: var(--ink-2); }
+.actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+
+/* ---------------------------------------------------------------- welcome */
+.welcome { max-width: 600px; margin: 28px auto; padding: 32px 28px; text-align: center; }
+.welcome h1 { font-size: 23px; margin: 18px 0 8px; line-height: 1.35; }
+.welcome .intro { color: var(--ink-2); margin: 0 auto; max-width: 460px; }
+.welcome .cta { display: flex; flex-direction: column; gap: 10px; margin: 24px auto 0; max-width: 360px; }
+.welcome .cta-row { display: flex; gap: 10px; }
+.welcome .cta-row .btn { flex: 1; }
+.linkbtn { background: none; border: 0; padding: 4px; color: var(--series); cursor: pointer; font-size: 13.5px; text-decoration: underline; text-underline-offset: 3px; }
+details.steps { text-align: start; margin-top: 22px; border-top: 1px solid var(--grid); padding-top: 14px; }
+details.steps summary { cursor: pointer; font-weight: 500; color: var(--ink-2); font-size: 14px; }
+details.steps ol { padding-inline-start: 22px; margin: 12px 0 4px; }
+details.steps li { margin-bottom: 8px; }
+.welcome .note { margin: 14px 0 0; }
+.empty-mini { text-align: center; padding: 36px 24px; }
+.empty-mini p { color: var(--ink-2); max-width: 480px; margin: 0 auto 18px; }
+.empty-mini h2 { font-size: 17px; margin: 0 0 8px; }
+.first-reading { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+.first-reading h2 { margin: 0; font-size: 15px; }
+.first-reading p { margin: 4px 0 0; }
+
+/* -------------------------------------------------------------- condition */
 .hero-desc { margin: 10px 0 0; color: var(--ink-2); }
 .hero-figure { display: flex; align-items: baseline; gap: 10px; margin: 18px 0 4px; flex-wrap: wrap; }
 .hero-figure .big { font-size: clamp(48px, 7vw, 68px); font-weight: 600; line-height: 1; letter-spacing: -0.02em; }
 .hero-figure .unit { font-size: 18px; color: var(--ink-2); }
 .hero-label { font-size: 13.5px; color: var(--ink-2); }
 .state-tag { font-size: 13px; color: var(--ink-2); display: inline-flex; align-items: center; gap: 6px; }
-.zonebar { position: relative; margin: 22px 0 28px; }
+.zonebar { position: relative; margin: 26px 0 30px; }
 .zonebar .track { display: flex; gap: 2px; height: 10px; }
 .zonebar .seg-z { height: 100%; border-radius: 3px; background: color-mix(in srgb, var(--st) 45%, transparent); }
 .zonebar .seg-z.active { background: var(--st); }
@@ -198,42 +256,68 @@ main { max-width: 1280px; margin: 0 auto; padding: 20px 24px 56px; }
 }
 .zonebar .tick { position: absolute; top: 16px; transform: translateX(50%); font-size: 11.5px; color: var(--muted); }
 [dir="ltr"] .zonebar .tick { transform: translateX(-50%); }
-.zonebar .zl { position: absolute; top: -20px; font-size: 11.5px; color: var(--ink-2); transform: translateX(50%); }
+.zonebar .zl { position: absolute; top: -21px; font-size: 11.5px; color: var(--ink-2); transform: translateX(50%); }
 [dir="ltr"] .zonebar .zl { transform: translateX(-50%); }
 .class-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 13.5px; color: var(--ink-2); }
-select {
-  height: 34px; border-radius: 9px; border: 1px solid var(--border); background: var(--surface);
-  padding: 0 10px; font-size: 13.5px; max-width: 100%;
-}
 
-.freq .big { font-size: 44px; font-weight: 600; line-height: 1.05; }
-.freq .unit { font-size: 16px; color: var(--ink-2); margin-inline-start: 6px; }
-.freq .sub { margin-top: 8px; color: var(--ink-2); font-size: 14px; }
-.freq dl { display: grid; grid-template-columns: auto 1fr; gap: 6px 16px; margin: 18px 0 0; font-size: 13.5px; }
-.freq dt { color: var(--ink-2); }
-.freq dd { margin: 0; font-weight: 500; }
+/* ------------------------------------------------------------- inspection */
+.inspect { display: flex; flex-direction: column; }
+.pick { display: flex; gap: 8px; }
+.pick select { flex: 1; min-width: 0; height: 42px; font-size: 14.5px; }
+.pick .btn { height: 42px; width: 42px; }
+.inspect .last { font-size: 13px; color: var(--ink-2); margin: 10px 0 0; min-height: 21px; }
+.btn.rec { width: 100%; height: 54px; font-size: 16px; margin-top: 14px; border-radius: 12px; }
+.btn.rec .rd { width: 12px; height: 12px; border-radius: 50%; background: var(--critical); box-shadow: 0 0 0 3px color-mix(in srgb, var(--critical) 30%, transparent); }
+.btn.rec .dur { font-weight: 400; opacity: 0.7; font-size: 14px; }
+.progress { height: 8px; border-radius: 4px; background: var(--grid); overflow: hidden; margin: 12px 0; }
+.progress > div { height: 100%; background: var(--series); border-radius: 4px; transition: width 0.25s linear; }
+.cap-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin-top: 14px; }
+.cap-head b { font-size: 15px; }
+.cap-fig { display: flex; align-items: baseline; gap: 8px; }
+.cap-fig .big { font-size: 34px; font-weight: 600; line-height: 1.1; }
+.res-fig { display: flex; align-items: baseline; gap: 8px; margin: 6px 0 10px; flex-wrap: wrap; }
+.res-fig .big { font-size: 40px; font-weight: 600; line-height: 1.05; }
+.unit-s { color: var(--ink-2); font-size: 14px; }
+.warnline { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; color: var(--ink-2); margin: 8px 0 0; }
+.subhead { font-size: 13px; font-weight: 600; color: var(--ink-2); margin: 16px 0 8px; }
+.field { display: grid; gap: 6px; margin-bottom: 14px; }
+.field label { font-size: 13px; color: var(--ink-2); }
+.field input, .field select { width: 100%; height: 42px; }
+.field small { font-size: 12px; color: var(--muted); }
 
 /* ------------------------------------------------------------------- tiles */
 .tile { display: flex; flex-direction: column; gap: 4px; }
 .tile .label { font-size: 13px; color: var(--ink-2); }
-.tile .value { font-size: 28px; font-weight: 600; line-height: 1.15; }
-.tile .value .unit { font-size: 14px; font-weight: 400; color: var(--ink-2); margin-inline-start: 4px; }
+.tile .value { display: flex; align-items: baseline; flex-wrap: wrap; column-gap: 5px; font-size: 28px; font-weight: 600; line-height: 1.15; }
+.tile .value .unit { font-size: 14px; font-weight: 400; color: var(--ink-2); }
 .tile .sub { font-size: 12.5px; color: var(--ink-2); min-height: 19px; }
 .tile.off .value { font-size: 16px; font-weight: 500; color: var(--muted); padding: 6px 0 3px; }
-.tile svg.spark { display: block; width: 100%; height: 30px; margin-top: 6px; }
-.meter { height: 8px; border-radius: 4px; background: var(--series-track); overflow: hidden; margin-top: 10px; }
+.tile svg.spark { display: block; width: 100%; height: 30px; margin-top: auto; padding-top: 6px; }
+.meter { height: 8px; border-radius: 4px; background: var(--series-track); overflow: hidden; margin-top: 8px; }
 .meter > div { height: 100%; background: var(--series); border-radius: 4px; transition: width 0.4s ease; }
 
 /* ------------------------------------------------------------------ charts */
-.chart { position: relative; direction: ltr; }
+.chart { position: relative; direction: ltr; touch-action: pan-y; }
 .chart svg { display: block; width: 100%; overflow: visible; }
 .chart text { font-size: 11.5px; fill: var(--muted); font-variant-numeric: tabular-nums; }
-.chart .lbl { fill: var(--ink-2); font-size: 12px; }
-.chart .placeholder { height: 200px; display: grid; place-items: center; color: var(--muted); font-size: 14px; direction: rtl; }
+.chart .lbl, .chart .mk { fill: var(--ink-2); font-size: 12px; paint-order: stroke; stroke: var(--surface); stroke-width: 4px; stroke-linejoin: round; }
+.chart .mk { font-size: 11px; font-weight: 600; }
+.chart .placeholder { height: 200px; display: grid; place-items: center; color: var(--muted); font-size: 14px; direction: rtl; text-align: center; padding: 0 16px; }
 [dir="ltr"] .chart .placeholder { direction: ltr; }
+.spec-grid { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(250px, 1fr); gap: 24px; align-items: start; }
+@media (max-width: 960px) { .spec-grid { grid-template-columns: minmax(0, 1fr); } }
+.rpm-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; font-size: 13.5px; color: var(--ink-2); }
+.rpm-row input { width: 110px; }
+.hints-box h3 { margin: 0 0 10px; font-size: 14px; }
+.hints { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.hints li { display: flex; gap: 10px; align-items: flex-start; }
+.hints li .ic { margin-top: 1px; }
+.hints b { display: block; font-weight: 600; font-size: 14px; }
+.hints .d { display: block; font-size: 13px; color: var(--ink-2); }
+.disclaimer { font-size: 12px; color: var(--muted); margin: 12px 0 0; }
 .tip {
   position: fixed; z-index: 50; pointer-events: none; min-width: 120px;
-  background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+  background: var(--raised); border: 1px solid var(--border); border-radius: 10px;
   box-shadow: 0 6px 24px rgba(0, 0, 0, 0.14); padding: 8px 10px; font-size: 12.5px;
 }
 .tip .v { font-size: 15px; font-weight: 600; }
@@ -244,16 +328,60 @@ table { width: 100%; border-collapse: collapse; font-size: 13px; }
 th, td { text-align: start; padding: 7px 8px; border-bottom: 1px solid var(--grid); }
 th { font-weight: 600; color: var(--ink-2); font-size: 12.5px; position: sticky; top: 0; background: var(--surface); }
 td { font-variant-numeric: tabular-nums; }
-.table-wrap { max-height: 280px; overflow: auto; }
+.table-wrap { max-height: 300px; overflow: auto; }
 
-/* ------------------------------------------------------------ events/info */
-.events { list-style: none; margin: 0; padding: 0; max-height: 300px; overflow: auto; }
+/* --------------------------------------------------------------- machines */
+.mach-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.mach-head h2 { margin: 0; font-size: 17px; }
+.mach-head .count { color: var(--ink-2); font-size: 13.5px; font-weight: 400; margin-inline-start: 6px; }
+.mach-tools { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 14px; }
+.mach-tools input[type="search"] { flex: 1; min-width: 180px; height: 40px; }
+.route { display: flex; align-items: center; gap: 12px; margin-top: 14px; font-size: 13.5px; color: var(--ink-2); }
+.route .progress { flex: 1; margin: 0; max-width: 360px; }
+.mlist { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); margin-top: 16px; }
+.mrow {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 12px; align-items: start; width: 100%;
+  padding: 16px 18px; border-radius: var(--radius); border: 1px solid var(--border); background: var(--surface);
+  text-align: start; cursor: pointer;
+}
+.mrow:hover { border-color: color-mix(in srgb, var(--ink) 22%, transparent); }
+.mrow .name { font-weight: 600; font-size: 15.5px; overflow-wrap: anywhere; }
+.mrow .loc { font-size: 12.5px; color: var(--ink-2); }
+.mrow .val { text-align: end; }
+.mrow .val b { font-size: 21px; font-weight: 600; }
+.mrow .val .u { font-size: 12px; color: var(--ink-2); margin-inline-start: 4px; }
+.mrow .meta { grid-column: 1 / -1; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 12.5px; color: var(--ink-2); margin-top: 4px; }
+.mrow .meta .ago { margin-inline-start: auto; }
+.mrow svg.spark { width: 90px; height: 26px; display: block; margin-top: 4px; margin-inline-start: auto; }
+.back { display: inline-flex; align-items: center; gap: 6px; margin-bottom: 12px; }
+[dir="ltr"] .back svg { transform: scaleX(-1); }
+.detail-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.detail-head h2 { margin: 0; font-size: 21px; overflow-wrap: anywhere; }
+.detail-head p { margin: 4px 0 0; color: var(--ink-2); font-size: 13.5px; }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-top: 18px; }
+.stat { border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; }
+.stat .label { font-size: 12.5px; color: var(--ink-2); }
+.stat .value { font-size: 22px; font-weight: 600; line-height: 1.3; }
+.stat .value .u { font-size: 13px; font-weight: 400; color: var(--ink-2); margin-inline-start: 4px; }
+.stat .sub { font-size: 12.5px; color: var(--ink-2); margin-top: 4px; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+.mlog { list-style: none; margin: 0; padding: 0; }
+.mlog li { padding: 12px 0; border-bottom: 1px solid var(--grid); display: grid; gap: 6px; }
+.mlog li:last-child { border-bottom: 0; }
+.mlog .top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 12.5px; color: var(--ink-2); }
+.mlog .mid { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.mlog .mid b { font-size: 18px; }
+.mlog .meta { font-size: 12.5px; color: var(--ink-2); }
+.mlog .notetext { font-size: 13.5px; background: var(--hover); border-radius: 8px; padding: 6px 10px; overflow-wrap: anywhere; }
+.mlog li { grid-template-columns: minmax(0, 1fr) auto; column-gap: 12px; }
+.mlog li > * { grid-column: 1; }
+.mlog .acts { grid-column: 2; grid-row: 1 / span 2; display: flex; gap: 6px; align-self: start; }
+.btn.sm.icon { width: 34px; padding: 0; }
+
+/* ------------------------------------------------------------ device tab */
+.events { list-style: none; margin: 0; padding: 0; max-height: 320px; overflow: auto; }
 .events li { display: flex; align-items: flex-start; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--grid); font-size: 13.5px; }
 .events li:last-child { border-bottom: 0; }
-.events .ic {
-  width: 20px; height: 20px; border-radius: 50%; flex: none; display: grid; place-items: center;
-  font-size: 11px; font-weight: 700; background: var(--st, var(--muted)); color: var(--st-ink, #fff); margin-top: 1px;
-}
+.events .ic { width: 20px; height: 20px; font-size: 11px; margin-top: 1px; }
 .events time { color: var(--muted); font-size: 12.5px; margin-inline-start: auto; white-space: nowrap; }
 .info { display: grid; grid-template-columns: auto 1fr; gap: 7px 16px; margin: 0; font-size: 13.5px; }
 .info dt { color: var(--ink-2); }
@@ -262,120 +390,242 @@ td { font-variant-numeric: tabular-nums; }
 .sensor { font-size: 12.5px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--border); display: inline-flex; gap: 5px; align-items: center; }
 .sensor .dot { width: 7px; height: 7px; }
 .card-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; }
+.conn-status { display: flex; align-items: center; gap: 10px; font-size: 15px; font-weight: 500; margin-bottom: 4px; }
+.setrow { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 11px 0; border-bottom: 1px solid var(--grid); font-size: 14px; flex-wrap: wrap; }
+.setrow:last-child { border-bottom: 0; }
+.setrow input[type="checkbox"] {
+  appearance: none; -webkit-appearance: none; width: 44px; height: 26px; border-radius: 13px; margin: 0;
+  background: var(--axis); position: relative; cursor: pointer; flex: none; transition: background 0.2s;
+}
+.setrow input[type="checkbox"]::after {
+  content: ""; position: absolute; top: 3px; inset-inline-start: 3px; width: 20px; height: 20px; border-radius: 50%;
+  background: #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25); transition: inset-inline-start 0.2s;
+}
+.setrow input[type="checkbox"]:checked { background: var(--series); }
+.setrow input[type="checkbox"]:checked::after { inset-inline-start: 21px; }
+.setrow label { flex: 1; min-width: 0; cursor: pointer; }
+
+/* ----------------------------------------------------------------- dialogs */
+dialog {
+  border: 1px solid var(--border); border-radius: 18px; background: var(--raised); color: var(--ink);
+  padding: 22px; width: min(92vw, 460px); max-height: 90vh; overflow: auto;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.32);
+}
+dialog::backdrop { background: rgba(0, 0, 0, 0.45); }
+dialog h2 { margin: 0 0 16px; font-size: 18px; }
+dialog ol { padding-inline-start: 22px; margin: 0 0 14px; }
+dialog li { margin-bottom: 8px; }
+.dlg-actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; margin-top: 18px; }
+.dlg-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.dlg-head h2 { margin-bottom: 12px; }
 
 .stale main .live { opacity: 0.55; transition: opacity 0.3s; }
 .toast {
   position: fixed; bottom: 20px; inset-inline-start: 50%; transform: translateX(50%); z-index: 60;
-  background: var(--btn-bg); color: var(--btn-ink); padding: 10px 16px; border-radius: 10px;
+  background: var(--btn-bg); color: var(--btn-ink); padding: 11px 16px; border-radius: 12px;
   font-size: 14px; max-width: min(92vw, 520px); box-shadow: 0 8px 28px rgba(0, 0, 0, 0.25);
 }
 [dir="ltr"] .toast { transform: translateX(-50%); }
-.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* ------------------------------------------------------------------ phone */
+@media (max-width: 760px) {
+  .desk { display: none !important; }
+  .topbar { padding: 8px 16px; padding-top: max(8px, env(safe-area-inset-top)); border-bottom: 1px solid var(--border); }
+  .brand span { display: none; }
+  .pill .long { display: none; }
+  .pill .short { display: inline; }
+  .pill.hide-mob { display: none; }
+  .tabs {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; padding: 0 6px env(safe-area-inset-bottom);
+    justify-content: space-around; border-bottom: 0; border-top: 1px solid var(--border);
+    background: color-mix(in srgb, var(--surface) 92%, transparent);
+  }
+  .tabs a {
+    flex: 1; flex-direction: column; justify-content: center; gap: 2px; height: 62px; padding: 0;
+    font-size: 11.5px; border-bottom: 0; margin: 0;
+  }
+  .tabs .ti { width: 56px; height: 30px; border-radius: 15px; transition: background 0.2s; }
+  .tabs a[aria-current="page"] .ti { background: color-mix(in srgb, var(--ink) 11%, transparent); }
+  .tabs svg { width: 21px; height: 21px; }
+  .tabs .badge-n { position: absolute; top: 5px; inset-inline-start: calc(50% + 8px); }
+  main { padding: 14px 14px calc(88px + env(safe-area-inset-bottom)); }
+  .card { padding: 16px; }
+  .row { gap: 12px; margin-bottom: 12px; }
+  .row.tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .tile .value { font-size: 23px; }
+  .welcome { margin: 8px auto; padding: 26px 18px; }
+  .toast { bottom: calc(80px + env(safe-area-inset-bottom)); }
+  .mlist { grid-template-columns: minmax(0, 1fr); }
+  dialog { width: 100%; max-width: 100%; margin: auto 0 0; border-radius: 20px 20px 0 0; padding-bottom: calc(22px + env(safe-area-inset-bottom)); }
+  .btn { height: 40px; }
+  .btn.sm { height: 34px; }
+}
+@media (max-width: 360px) { .brand strong { display: none; } }
+@media (min-width: 761px) { .mob { display: none !important; } }
+
+/* ----------------------------------------------------------------- report */
+#report { display: none; }
+.report {
+  color-scheme: light; --page: #fff; --surface: #fff; --raised: #fff; --ink: #0b0b0b; --ink-2: #52514e; --muted: #6f6d68;
+  --grid: #e1e0d9; --axis: #c3c2b7; --border: rgba(11, 11, 11, 0.14); --hover: rgba(11, 11, 11, 0.05);
+  --series: #2a78d6; --series-wash: rgba(42, 120, 214, 0.10); --series-track: #cde2fb;
+  background: #fff; color: #0b0b0b; font-size: 12px;
+}
+.report .rh { display: flex; align-items: center; justify-content: space-between; gap: 12px; border-bottom: 2px solid #0b0b0b; padding-bottom: 10px; margin-bottom: 14px; }
+.report .rh h1 { font-size: 19px; margin: 0; }
+.report .rh p { margin: 2px 0 0; color: var(--ink-2); }
+.report h2 { font-size: 14px; margin: 18px 0 8px; }
+.report .kv { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.report .kv div { border: 1px solid var(--border); border-radius: 8px; padding: 6px 9px; }
+.report .kv span { display: block; color: var(--ink-2); font-size: 11px; }
+.report .kv b { font-size: 14px; }
+.report section { break-inside: avoid; }
+.report table { font-size: 11px; }
+.report th { position: static; }
+.report .foot { margin-top: 18px; font-size: 10.5px; color: var(--muted); border-top: 1px solid var(--grid); padding-top: 8px; }
+@media print {
+  html, body { background: #fff !important; }
+  body > *:not(#report) { display: none !important; }
+  #report { display: block; }
+  .report * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  @page { margin: 14mm; }
+}
 </style>
 </head>
 <body>
-<header class="topbar">
-  <div class="brand">
-    <svg width="34" height="34" viewBox="0 0 34 34" aria-hidden="true">
-      <rect x="1" y="1" width="32" height="32" rx="9" fill="var(--btn-bg)"/>
-      <path d="M7 19.5h4l2.5-7 4 13 3-9 2 3H27" fill="none" stroke="var(--btn-ink)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
-    </svg>
-    <div>
-      <strong>MANTIS</strong>
-      <span data-i18n="subtitle"></span>
-    </div>
-  </div>
-  <div class="actions">
-    <span class="pill" id="connPill" role="status"><span class="dot" id="connDot"></span><span id="connText"></span></span>
-    <button class="btn primary" id="btnBle" data-i18n="connect_ble"></button>
-    <button class="btn" id="btnUsb" data-i18n="connect_usb"></button>
-    <button class="btn" id="btnDemo" data-i18n="demo"></button>
-    <button class="btn" id="btnDisconnect" data-i18n="disconnect" hidden></button>
-    <button class="btn icon" id="btnLang" aria-label="Language">EN</button>
-    <button class="btn icon" id="btnTheme" data-i18n-title="theme">
+<div class="chrome">
+  <header class="topbar">
+    <a class="brand" href="#live" data-nav="live">
+      <svg width="34" height="34" viewBox="0 0 34 34" aria-hidden="true">
+        <rect x="1" y="1" width="32" height="32" rx="9" fill="var(--btn-bg)"/>
+        <path d="M7 19.5h4l2.5-7 4 13 3-9 2 3H27" fill="none" stroke="var(--btn-ink)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <div><strong>MANTIS</strong><span data-i18n="subtitle"></span></div>
+    </a>
+    <span class="spacer"></span>
+    <button class="live-mini" id="liveMini" hidden><span class="ic" aria-hidden="true"></span><span class="z"></span><span class="num v"></span><span class="u"></span></button>
+    <button class="pill" id="connPill"><span class="dot" id="connDot"></span><span class="long" id="connText"></span><span class="short" id="connShort"></span></button>
+    <button class="btn primary" id="btnConnect"><span class="desk" data-i18n="connect_ble"></span><span class="mob" data-i18n="connect"></span></button>
+    <button class="btn desk" id="btnUsb" data-i18n="connect_usb"></button>
+    <button class="btn desk" id="btnDisconnect" data-i18n="disconnect" hidden></button>
+    <button class="btn icon desk" id="btnLang" aria-label="Language">EN</button>
+    <button class="btn icon desk" id="btnTheme" data-i18n-title="theme">
       <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><circle cx="9" cy="9" r="7" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M9 2a7 7 0 0 1 0 14z" fill="currentColor"/></svg>
     </button>
-  </div>
-</header>
+  </header>
+  <nav class="tabs" id="tabs" data-i18n-aria="tabs_label">
+    <a href="#live" data-nav="live"><span class="ti"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h4l3-7 4 14 3-7h4"/></svg></span><span data-i18n="tab_live"></span></a>
+    <a href="#analysis" data-nav="analysis"><span class="ti"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h16M7 16v-4M12 16V6M17 16v-7"/></svg></span><span data-i18n="tab_analysis"></span></a>
+    <a href="#machines" data-nav="machines"><span class="ti"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 3h6v3H9zM9 11h6M9 15h4"/></svg></span><span data-i18n="tab_machines"></span><span class="badge-n" id="machBadge" hidden></span></a>
+    <a href="#device" data-nav="device"><span class="ti"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="7" width="10" height="10" rx="2"/><path d="M10 3v4M14 3v4M10 17v4M14 17v4M3 10h4M3 14h4M17 10h4M17 14h4"/></svg></span><span data-i18n="tab_device"></span></a>
+  </nav>
+</div>
 
 <main>
-  <section class="card help" id="bleHelp" hidden aria-labelledby="hHelp">
-    <div class="card-head">
-      <h2 id="hHelp" data-i18n="help_title"></h2>
-      <button class="btn icon" id="helpClose" data-i18n-title="close">✕</button>
-    </div>
-    <ol>
-      <li data-i18n="help_1"></li>
-      <li data-i18n="help_2"></li>
-      <li data-i18n="help_3"></li>
-      <li data-i18n="help_4"></li>
-      <li data-i18n="help_5"></li>
-    </ol>
-    <div class="actions">
-      <button class="btn primary" data-act="ble" data-i18n="try_again"></button>
-      <button class="btn" id="btnBleAll" data-i18n="show_all"></button>
-    </div>
-  </section>
-
-  <section class="card first-reading" aria-labelledby="firstReadingTitle">
-    <div><h2 id="firstReadingTitle" data-i18n="first_title"></h2><p class="note" id="firstReadingStatus" role="status"></p></div>
-    <button class="btn primary" id="btnFirstReading" data-i18n="first_create"></button>
-  </section>
-
-  <section class="empty card" id="emptyState">
-    <h1 data-i18n="empty_title"></h1>
-    <p class="ink2" data-i18n="empty_intro"></p>
-    <ol>
-      <li data-i18n="empty_step1"></li>
-      <li data-i18n="empty_step2"></li>
-      <li data-i18n="empty_step3"></li>
-    </ol>
-    <p class="note" data-i18n="empty_alt"></p>
-    <p class="note" id="browserNote"></p>
-    <div class="actions">
-      <button class="btn primary" data-act="ble" data-i18n="connect_ble"></button>
-      <button class="btn" data-act="usb" data-i18n="connect_usb"></button>
-      <button class="btn" data-act="demo" data-i18n="demo"></button>
-    </div>
-  </section>
-
-  <div id="dash" hidden>
-    <div class="row hero live">
-      <article class="card" aria-labelledby="hCond">
-        <div class="card-head"><div><h2 id="hCond" data-i18n="machine_condition"></h2></div><span class="state-tag" id="runState"></span></div>
-        <div class="hero-top" id="zoneChip"></div>
-        <p class="hero-desc" id="zoneDesc"></p>
-        <div class="hero-figure"><span class="big num" id="velValue">—</span><span class="unit" id="velUnit"></span></div>
-        <div class="hero-label" data-i18n="vel_label"></div>
-        <div class="zonebar" id="zoneBar" aria-hidden="true"></div>
-        <div class="class-row">
-          <label for="isoClass" data-i18n="iso_class"></label>
-          <select id="isoClass"></select>
+  <!-- ============================================================ live -->
+  <section class="panel" data-tab="live">
+    <section class="card welcome" id="welcome">
+      <svg width="64" height="64" viewBox="0 0 34 34" aria-hidden="true">
+        <rect x="1" y="1" width="32" height="32" rx="9" fill="var(--btn-bg)"/>
+        <path d="M7 19.5h4l2.5-7 4 13 3-9 2 3H27" fill="none" stroke="var(--btn-ink)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <h1 data-i18n="empty_title"></h1>
+      <p class="intro" data-i18n="empty_intro"></p>
+      <div class="cta">
+        <button class="btn primary lg" data-act="ble" data-i18n="connect_ble"></button>
+        <div class="cta-row">
+          <button class="btn" data-act="usb" data-i18n="connect_usb"></button>
+          <button class="btn" data-act="demo" data-i18n="demo"></button>
         </div>
-      </article>
-      <article class="card freq" aria-labelledby="hFreq">
-        <div class="card-head"><div><h2 id="hFreq" data-i18n="dom_freq"></h2></div></div>
-        <div id="freqBody"></div>
-      </article>
+        <button class="linkbtn" data-act="help" data-i18n="not_showing"></button>
+      </div>
+      <p class="note" id="browserNote"></p>
+      <details class="steps">
+        <summary data-i18n="steps_title"></summary>
+        <ol>
+          <li data-i18n="empty_step1"></li>
+          <li data-i18n="empty_step2"></li>
+          <li data-i18n="empty_step3"></li>
+        </ol>
+        <p class="note" data-i18n="empty_alt"></p>
+      </details>
+    </section>
+
+    <div id="liveDash" hidden>
+      <section class="card first-reading" id="firstReadingCard" hidden aria-labelledby="firstReadingTitle">
+        <div><h2 id="firstReadingTitle" data-i18n="first_title"></h2><p class="note" id="firstReadingStatus" role="status"></p></div>
+        <button class="btn primary" id="btnFirstReading" data-i18n="first_create"></button>
+      </section>
+
+      <div class="row hero">
+        <article class="card live" id="heroCard" aria-labelledby="hCond">
+          <div class="card-head"><div><h2 id="hCond" data-i18n="machine_condition"></h2><p id="condMachine"></p></div><span class="state-tag" id="runState"></span></div>
+          <div id="zoneChip"></div>
+          <p class="hero-desc" id="zoneDesc"></p>
+          <div class="hero-figure"><span class="big num" id="velValue">—</span><span class="unit" id="velUnit"></span></div>
+          <div class="hero-label" data-i18n="vel_label"></div>
+          <div class="zonebar" id="zoneBar" aria-hidden="true"></div>
+          <div class="class-row">
+            <label for="isoClass" data-i18n="iso_class"></label>
+            <select id="isoClass"></select>
+          </div>
+        </article>
+        <article class="card inspect" id="inspectCard" aria-labelledby="hInspect">
+          <div class="card-head"><div><h2 id="hInspect" data-i18n="inspect"></h2><p data-i18n="inspect_sub"></p></div></div>
+          <div class="pick">
+            <select id="machineSel" data-i18n-aria="machine"></select>
+            <button class="btn icon" id="btnAddMachine" data-i18n-title="add_machine">
+              <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M9 3v12M3 9h12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+            </button>
+          </div>
+          <div id="inspectBody"></div>
+        </article>
+      </div>
+
+      <div class="row tiles live" id="tiles"></div>
     </div>
+  </section>
 
-    <div class="row tiles live" id="tiles"></div>
-
-    <div class="toolbar">
-      <label data-i18n="range"></label>
-      <div class="seg" id="rangeSeg" role="group"></div>
-    </div>
-
-    <div class="row two live">
-      <article class="card" aria-labelledby="hSpec">
+  <!-- ======================================================== analysis -->
+  <section class="panel" data-tab="analysis" hidden>
+    <section class="card empty-mini" id="anaEmpty">
+      <h2 data-i18n="tab_analysis"></h2>
+      <p data-i18n="ana_empty"></p>
+      <div class="actions" style="justify-content:center">
+        <button class="btn primary" data-act="ble" data-i18n="connect_ble"></button>
+        <button class="btn" data-act="usb" data-i18n="connect_usb"></button>
+        <button class="btn" data-act="demo" data-i18n="demo"></button>
+      </div>
+    </section>
+    <div id="anaDash">
+      <div class="toolbar">
+        <label data-i18n="range"></label>
+        <div class="seg" id="rangeSeg" role="group"></div>
+      </div>
+      <article class="card live" aria-labelledby="hSpec">
         <div class="card-head">
           <div><h2 id="hSpec" data-i18n="spectrum"></h2><p id="specSub"></p></div>
           <div class="seg" data-view="spec"><button data-v="chart" data-i18n="chart"></button><button data-v="table" data-i18n="table"></button></div>
         </div>
-        <div class="chart" id="specChart"></div>
-        <div class="table-wrap" id="specTable" hidden></div>
+        <div class="spec-grid">
+          <div>
+            <div class="rpm-row">
+              <label for="rpmInput" data-i18n="rpm"></label>
+              <input id="rpmInput" type="number" inputmode="numeric" min="60" max="30000" step="1" placeholder="RPM">
+              <button class="btn sm" id="btnUseDom" data-i18n="use_dom"></button>
+            </div>
+            <div class="chart" id="specChart"></div>
+            <div class="table-wrap" id="specTable" hidden></div>
+          </div>
+          <aside class="hints-box" aria-labelledby="hHints">
+            <h3 id="hHints" data-i18n="hints"></h3>
+            <p class="note" id="rpmNote"></p>
+            <ul class="hints" id="liveHints"></ul>
+            <p class="disclaimer" data-i18n="hints_disc"></p>
+          </aside>
+        </div>
       </article>
-      <article class="card" aria-labelledby="hTrend">
+      <article class="card live" aria-labelledby="hTrend">
         <div class="card-head">
           <div><h2 id="hTrend" data-i18n="trend"></h2><p id="trendSub"></p></div>
           <div class="seg" data-view="trend"><button data-v="chart" data-i18n="chart"></button><button data-v="table" data-i18n="table"></button></div>
@@ -384,26 +634,132 @@ td { font-variant-numeric: tabular-nums; }
         <div class="table-wrap" id="trendTable" hidden></div>
       </article>
     </div>
+  </section>
 
+  <!-- ======================================================== machines -->
+  <section class="panel" data-tab="machines" hidden>
+    <div id="machList">
+      <section class="card">
+        <div class="mach-head">
+          <h2><span data-i18n="machines_title"></span><span class="count" id="machCount"></span></h2>
+          <div class="actions">
+            <button class="btn primary" id="btnNewMachine">
+              <svg width="16" height="16" viewBox="0 0 18 18" aria-hidden="true"><path d="M9 3v12M3 9h12" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg>
+              <span data-i18n="add_machine"></span>
+            </button>
+            <button class="btn" id="btnRouteReport" data-i18n="route_report"></button>
+            <button class="btn" id="btnRouteShare" data-i18n="share"></button>
+          </div>
+        </div>
+        <div class="mach-tools" id="machTools">
+          <input type="search" id="machSearch" data-i18n-ph="search_ph" data-i18n-aria="search_ph" autocomplete="off">
+        </div>
+        <div class="route" id="routeBox">
+          <span data-i18n="route_today"></span>
+          <div class="progress" role="progressbar" aria-valuemin="0" id="routeBar"><div></div></div>
+          <span id="routeText"></span>
+        </div>
+      </section>
+      <div class="mlist" id="mlist"></div>
+    </div>
+    <div id="machDetail" hidden></div>
+  </section>
+
+  <!-- ========================================================== device -->
+  <section class="panel" data-tab="device" hidden>
     <div class="row two">
-      <article class="card" aria-labelledby="hEvents">
-        <div class="card-head"><div><h2 id="hEvents" data-i18n="events"></h2></div></div>
-        <ul class="events" id="events" aria-live="polite"></ul>
+      <article class="card" aria-labelledby="hConn">
+        <div class="card-head"><div><h2 id="hConn" data-i18n="connection"></h2></div></div>
+        <div class="conn-status"><span class="dot" id="connDot2"></span><span id="connText2"></span></div>
+        <div class="card-actions">
+          <button class="btn primary" data-act="ble" data-when="off" data-i18n="connect_ble"></button>
+          <button class="btn" data-act="usb" data-when="off" data-i18n="connect_usb"></button>
+          <button class="btn" data-act="demo" data-when="off" data-i18n="demo"></button>
+          <button class="btn" data-act="disconnect" data-when="on" data-i18n="disconnect"></button>
+          <button class="btn" id="btnIdentify" data-i18n="identify"></button>
+          <button class="btn" data-act="help" data-i18n="ble_help"></button>
+        </div>
       </article>
       <article class="card" aria-labelledby="hDev">
         <div class="card-head"><div><h2 id="hDev" data-i18n="device"></h2></div></div>
         <dl class="info" id="info"></dl>
+      </article>
+    </div>
+    <div class="row two">
+      <article class="card" aria-labelledby="hSet">
+        <div class="card-head"><div><h2 id="hSet" data-i18n="settings"></h2></div></div>
+        <div class="setrow"><span data-i18n="language"></span><div class="seg" data-setting="lang"><button data-v="ar">العربية</button><button data-v="en">English</button></div></div>
+        <div class="setrow"><span data-i18n="theme"></span><div class="seg" data-setting="theme"><button data-v="auto" data-i18n="th_auto"></button><button data-v="light" data-i18n="th_light"></button><button data-v="dark" data-i18n="th_dark"></button></div></div>
+        <div class="setrow"><span data-i18n="s_dur"></span><div class="seg" data-setting="dur"><button data-v="10"></button><button data-v="15"></button><button data-v="30"></button></div></div>
+        <div class="setrow"><span data-i18n="s_line"></span><div class="seg" data-setting="lineHz"><button data-v="50" class="num">50 Hz</button><button data-v="60" class="num">60 Hz</button></div></div>
+        <div class="setrow"><label for="setWake" data-i18n="s_wake"></label><input type="checkbox" role="switch" id="setWake" data-setting="wake"></div>
+        <div class="setrow"><label for="setVibe" data-i18n="s_vibe"></label><input type="checkbox" role="switch" id="setVibe" data-setting="vibe"></div>
+        <div class="setrow"><label for="setBeep" data-i18n="s_beep"></label><input type="checkbox" role="switch" id="setBeep" data-setting="beep"></div>
+        <div class="setrow" id="rowAuto"><label for="setAuto" data-i18n="s_auto"></label><input type="checkbox" role="switch" id="setAuto" data-setting="autoConn"></div>
+      </article>
+      <article class="card" aria-labelledby="hData">
+        <div class="card-head"><div><h2 id="hData" data-i18n="data"></h2><p id="storageUsed"></p></div></div>
+        <p class="note" data-i18n="data_note"></p>
         <div class="card-actions">
-          <button class="btn" id="btnIdentify" data-i18n="identify"></button>
+          <button class="btn" id="btnBackup" data-i18n="backup"></button>
+          <button class="btn" id="btnRestore" data-i18n="restore"></button>
+          <button class="btn" id="btnExportMeas" data-i18n="export_meas"></button>
           <button class="btn" id="btnExport" data-i18n="export"></button>
           <button class="btn" id="btnClear" data-i18n="clear"></button>
         </div>
+        <input type="file" id="fileRestore" accept="application/json,.json" hidden>
       </article>
     </div>
-  </div>
+    <article class="card" aria-labelledby="hEvents">
+      <div class="card-head"><div><h2 id="hEvents" data-i18n="events"></h2></div></div>
+      <ul class="events" id="events" aria-live="polite"></ul>
+    </article>
+  </section>
 </main>
+
+<dialog id="bleHelp" aria-labelledby="hHelp">
+  <div class="dlg-head">
+    <h2 id="hHelp" data-i18n="help_title"></h2>
+    <button class="btn icon" id="helpClose" data-i18n-title="close">✕</button>
+  </div>
+  <ol>
+    <li data-i18n="help_1"></li>
+    <li data-i18n="help_2"></li>
+    <li data-i18n="help_3"></li>
+    <li data-i18n="help_4"></li>
+    <li data-i18n="help_5"></li>
+  </ol>
+  <div class="dlg-actions">
+    <button class="btn" id="btnBleAll" data-i18n="show_all"></button>
+    <button class="btn primary" id="btnHelpRetry" data-i18n="try_again"></button>
+  </div>
+</dialog>
+
+<dialog id="dlgMachine" aria-labelledby="dlgMachineTitle">
+  <form id="formMachine" novalidate>
+    <h2 id="dlgMachineTitle"></h2>
+    <div class="field"><label for="fName" data-i18n="f_name"></label><input id="fName" type="text" maxlength="60" autocomplete="off" data-i18n-ph="f_name_ph"></div>
+    <div class="field"><label for="fLoc" data-i18n="f_loc"></label><input id="fLoc" type="text" maxlength="60" autocomplete="off" data-i18n-ph="f_loc_ph"></div>
+    <div class="field"><label for="fCls" data-i18n="f_cls"></label><select id="fCls"></select></div>
+    <div class="field"><label for="fRpm" data-i18n="f_rpm"></label><input id="fRpm" type="number" inputmode="numeric" min="60" max="30000" step="1" placeholder="1480"><small data-i18n="f_rpm_hint"></small></div>
+    <div class="dlg-actions">
+      <button type="button" class="btn" id="dlgMachineCancel" data-i18n="cancel"></button>
+      <button type="submit" class="btn primary" data-i18n="save"></button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dlgConfirm">
+  <p id="confirmText" style="margin:0;font-size:15px"></p>
+  <div class="dlg-actions">
+    <button class="btn" id="confirmNo" data-i18n="cancel"></button>
+    <button class="btn primary" id="confirmYes"></button>
+  </div>
+</dialog>
+
 <div class="tip" id="tip" hidden></div>
 <div class="toast" id="toast" role="alert" hidden></div>
+<div id="report" class="report"></div>
 
 <script>
 'use strict';
@@ -424,32 +780,41 @@ const RUNNING_MM_S = 0.3;     // below this the machine is treated as stopped/qu
 const DOMINANT_MIN = 0.05;    // mm/s - a weaker peak is just sensor noise
 const IR_LIMIT = 70;          // C - surface temperature alert
 const MAX_READINGS = 4000;    // ~70 min at one reading per 1.1 s
+const RISE_WARN = 0.25;       // +25 % over the machine's baseline is worth a look
+const RISE_SERIOUS = 1.0;     // doubled vibration is a serious change even inside zone B
 const STATUS = {
   1: { key: 'A', st: 'good', icon: '✓' },
   2: { key: 'B', st: 'good', icon: '✓' },
   3: { key: 'C', st: 'warning', icon: '!' },
   4: { key: 'D', st: 'critical', icon: '✕' },
 };
+const RANK = { muted: 0, good: 0, warning: 1, serious: 2, critical: 3 };
+const TABS = ['live', 'analysis', 'machines', 'device'];
 
 // ---------------------------------------------------------------- i18n ---
 const I18N = {
   ar: {
     subtitle: 'نظام الفحص الفني متعدد الحساسات',
-    connect_ble: 'اتصال بلوتوث', connect_usb: 'اتصال USB', demo: 'عرض تجريبي', disconnect: 'قطع الاتصال', theme: 'المظهر',
+    tab_live: 'مباشر', tab_analysis: 'التحليل', tab_machines: 'المعدات', tab_device: 'الجهاز', tabs_label: 'أقسام التطبيق',
+    connect: 'اتصال', connect_ble: 'اتصال بلوتوث', connect_usb: 'اتصال USB', demo: 'عرض تجريبي', disconnect: 'قطع الاتصال',
+    theme: 'المظهر', language: 'اللغة',
     st_off: 'غير متصل', st_connecting: 'جارٍ الاتصال…', st_reconnecting: 'إعادة الاتصال…',
-    st_ble: 'متصل عبر البلوتوث', st_usb: 'متصل عبر USB', st_demo: 'عرض تجريبي', st_stale: 'لا توجد بيانات حديثة',
+    st_ble: 'متصل عبر البلوتوث', st_usb: 'متصل عبر USB', st_demo: 'بيانات تجريبية', st_stale: 'لا توجد بيانات حديثة',
+    sh_off: 'غير متصل', sh_connecting: 'يتصل…', sh_reconnecting: 'يعيد الاتصال…', sh_ble: 'بلوتوث', sh_usb: 'USB', sh_demo: 'تجريبي', sh_stale: 'متوقف',
     empty_title: 'وصّل جهاز MANTIS لبدء الفحص',
-    empty_intro: 'الواجهة تعرض حالة الآلة مباشرة: الاهتزاز، الحرارة، والصوت.',
+    empty_intro: 'تعرض حالة الآلة مباشرة: الاهتزاز والحرارة والصوت، وتحفظ قياسات كل آلة عشان تتابعها مع الوقت.',
+    steps_title: 'خطوات التوصيل',
     empty_step1: 'شغّل الجهاز. اللمبة تومض كل ثانية ونص يعني أنه جاهز للاتصال.',
     empty_step2: 'اضغط «اتصال بلوتوث» واختر MANTIS من القائمة.',
     empty_step3: 'ثبّت الجهاز على سطح الآلة (المغناطيس للأسفل) وتظهر القراءات خلال ثانية.',
-    empty_alt: 'الجهاز موصول بالكمبيوتر بسلك؟ استخدم «اتصال USB». تبي تشوف الواجهة بدون جهاز؟ جرّب «عرض تجريبي».',
+    empty_alt: 'الجهاز موصول بالكمبيوتر بسلك؟ استخدم «اتصال USB».',
+    not_showing: 'ما ظهر الجهاز في القائمة؟',
     first_title: 'أول قراءة', first_create: 'إنشاء أول قراءة', first_wait: 'بانتظار قراءة جديدة من الجهاز…',
     first_need: 'وصّل الجهاز عبر البلوتوث أو USB لإنشاء قراءة حقيقية.',
     first_ready: 'الجهاز متصل. اضغط الزر لحفظ أول قراءة حقيقية.',
     first_connected_wait: 'البلوتوث متصل، لكن لم تصل قياسات بعد. انتظر قليلًا؛ إذا استمر، أعد تشغيل اللوحة والصفحة.',
     first_done: '✓ اكتملت أول قراءة في {time}: الاهتزاز {vel} مم/ث، الصوت {snd} dB(A).',
-    first_saved: 'تم حفظ أول قراءة من الجهاز.',
+    first_saved: 'تم حفظ أول قراءة من الجهاز.', first_row: 'أول قراءة',
     browser_ok: 'يعمل على Chrome أو Edge (كمبيوتر أو أندرويد).',
     machine_condition: 'حالة الآلة', vel_label: 'سرعة الاهتزاز (RMS، من 10 هرتز فما فوق)',
     zone: 'المنطقة',
@@ -462,10 +827,9 @@ const I18N = {
     iso_class: 'فئة الآلة (ISO 10816)',
     cls1: 'I: آلات صغيرة حتى 15 كيلوواط', cls2: 'II: متوسطة 15 إلى 75 كيلوواط',
     cls3: 'III: كبيرة على قاعدة صلبة', cls4: 'IV: كبيرة على قاعدة مرنة',
-    dom_freq: 'التردد السائد',
-    rpm_equiv: 'يعادل {rpm} دورة/دقيقة إذا كان تردد الدوران',
+    dom_freq: 'التردد السائد', rpm_equiv: '≈ {rpm} دورة/د إذا كان تردد الدوران',
     peak_amp: 'شدة القمة', axis: 'المحور الأعلى', sample_rate: 'معدل العينات',
-    no_dom: 'لا يوجد تردد واضح', no_dom_sub: 'الاهتزاز أقل من حد القياس، غالباً الآلة متوقفة.',
+    no_dom: 'لا يوجد تردد واضح', no_dom_sub: 'الاهتزاز أقل من حد القياس.',
     acc: 'التسارع (RMS)', acc_sub: 'القمة {apk} · معامل القمة {crest}',
     ir: 'حرارة السطح (IR)', ir_sub: 'المحيط {amb}', ir_missing: 'غير موصول', ir_hint: 'وصّل MLX90614 على A4/A5',
     int_temp: 'حرارة داخل الجهاز', int_sub: 'الرطوبة {rh}',
@@ -473,18 +837,76 @@ const I18N = {
     sound: 'مستوى الصوت', sound_sub: '{level} · تقريبي ±3',
     snd_quiet: 'هادئ', snd_normal: 'عادي', snd_loud: 'مرتفع', snd_danger: 'خطر على السمع، استخدم واقي أذن',
     piezo: 'حساس التلامس (بيزو)', piezo_sub: 'الصدمات: {n} · RMS {rms}', piezo_off: 'غير مفعّل', piezo_hint: 'فعّله من PIEZO_ENABLED في الكود',
+    inspect: 'تسجيل قياس', inspect_sub: 'متوسط مستقر يُحفظ في سجل الآلة',
+    machine: 'الآلة', pick_machine: 'اختر الآلة…', new_machine_opt: '+ آلة جديدة…', add_machine: 'إضافة آلة',
+    record: 'سجّل قياس', measuring: 'جارٍ القياس…', left_s: 'باقي {n} ث', cancel: 'إلغاء',
+    cap_avg: 'المتوسط حتى الآن', cap_hold: 'ثبّت الجهاز على نفس النقطة ولا تحركه.',
+    need_live: 'وصّل الجهاز أول عشان تسجّل قياس.', need_machine: 'اختر الآلة اللي تفحصها، أو أضف آلة جديدة.',
+    last_meas: 'آخر قياس {vel} · {ago}', no_meas_yet: 'ما فيه قياسات لهذي الآلة بعد. أول قياس يصير خط الأساس.',
+    res_title: 'نتيجة القياس', save: 'حفظ', discard: 'تجاهل', note: 'ملاحظة (اختياري)', note_ph: 'مثلاً: صوت غير طبيعي من المحمل',
+    res_first: 'هذا أول قياس، بيصير خط الأساس لهذي الآلة.',
+    warn_unstable: 'القراءة متذبذبة ({cv}). تأكد إن الجهاز مثبت جيداً وأعد القياس إذا لزم.',
+    warn_stopped: 'الاهتزاز منخفض جداً، الآلة تبدو متوقفة.',
+    warn_few: 'ما وصلت قراءات كافية من الجهاز. حاول مرة ثانية.',
+    cap_aborted: 'توقف القياس لأن الاتصال انقطع.', saved_meas: 'تم حفظ القياس لـ «{name}»',
+    base: 'خط الأساس', vs_base: 'مقارنة بخط الأساس',
+    ch_stable: 'مستقر', ch_rise: 'ارتفع', ch_double: 'تضاعف', ch_drop: 'انخفض',
+    ago: 'منذ {n} ث', ago_m: 'منذ {n} د', ago_h: 'منذ {n} س', ago_d: 'منذ {n} يوم',
+    machines_title: 'المعدات', machines_n: '{n} آلة', search_ph: 'بحث بالاسم أو الموقع',
+    route_report: 'تقرير الجولة', route_today: 'فحص اليوم', route_progress: '{done} من {total}',
+    no_machines_t: 'ما أضفت معدات بعد',
+    no_machines_d: 'أضف كل آلة تفحصها (مضخة، محرك، مروحة…) وسجّل لها قياس. التطبيق يحفظ القياسات ويقارنها مع الوقت عشان تكتشف المشكلة قبل لا تكبر.',
+    no_match: 'لا توجد نتائج.', never: 'لم تُفحص بعد',
+    back: 'المعدات', edit: 'تعديل', delete: 'حذف', del_machine: 'حذف الآلة',
+    confirm_del_machine: 'تحذف «{name}» وكل قياساتها ({n})؟ ما تقدر تتراجع.', confirm_del_meas: 'تحذف هذا القياس؟',
+    set_base: 'اعتمده كخط أساس', record_now: 'سجّل قياس الآن', report: 'تقرير PDF', share: 'مشاركة',
+    latest: 'آخر قياس', meas_count: 'القياسات', history: 'سجل الاهتزاز', history_sub: 'كل نقطة قياس محفوظ · الخط المتقطع هو خط الأساس',
+    history_one: 'سجّل قياس ثاني عشان يظهر الاتجاه.', measurements: 'القياسات المحفوظة', tag_demo: 'تجريبي',
+    machine_new: 'آلة جديدة', machine_edit: 'تعديل الآلة',
+    f_name: 'اسم الآلة', f_name_ph: 'مثلاً: مضخة التبريد 1', f_loc: 'الموقع (اختياري)', f_loc_ph: 'مثلاً: غرفة المضخات',
+    f_cls: 'فئة الآلة (ISO 10816)', f_rpm: 'سرعة الدوران RPM (اختياري)', f_rpm_hint: 'مكتوبة على لوحة بيانات المحرك، وتفيد في تلميحات الأعطال.',
+    name_req: 'اكتب اسم الآلة.',
+    hints: 'تلميحات الأعطال', hints_disc: 'تلميحات مبدئية من شكل الطيف، وليست تشخيصاً نهائياً. أكّدها بفحص فني.',
+    rpm: 'سرعة الدوران', use_dom: 'من التردد السائد',
+    rpm_need: 'أدخل سرعة الدوران عشان تظهر علامات 1× و2× و3× وتلميحات أدق.', rpm_low: 'سرعة الدوران أقل من مدى القياس (600 RPM).',
+    h_ok_t: 'لا توجد مؤشرات عطل واضحة', h_ok_d: 'الاهتزاز ضمن المقبول ولم يرتفع عن خط الأساس.',
+    h_idle_t: 'الآلة متوقفة أو هادئة', h_idle_d: 'شغّل الآلة عشان يتقيّم الاهتزاز.',
+    h_unb_t: 'عدم اتزان محتمل', h_unb_d: 'القمة الأقوى عند سرعة الدوران (1×). افحص تراكم الأوساخ على المروحة أو الدوّار والريش المكسورة، وأعد الموازنة.',
+    h_mis_t: 'سوء محاذاة محتمل', h_mis_d: 'قمة قوية عند ضعف سرعة الدوران (2×). افحص محاذاة الكوبلنج بين المحرك والحمل وحالة جلبة الكوبلنج.',
+    h_loose_t: 'ارتخاء ميكانيكي محتمل', h_loose_d: 'توافقيات كثيرة (3× وأعلى). افحص براغي القاعدة والتثبيت، والشقوق، وخلوص المحمل.',
+    h_elec_t: 'مشكلة كهربائية محتملة', h_elec_d: 'قمة عند {f} هرتز (ضعف تردد الكهرباء). افحص توازن الجهد بين الأطوار وفجوة الهواء وقضبان الدوّار.',
+    h_bear_t: 'تآكل محامل أو نقص تزييت محتمل', h_bear_d: 'صدمات أو طاقة عالية التردد (معامل القمة {crest}). افحص التزييت وحرارة المحمل وصوته.',
+    h_unk_t: 'نمط غير واضح', h_unk_d: 'الاهتزاز مرتفع لكن الطيف ما يطابق نمط معروف. قد يكون رنين أو اهتزاز منقول من آلة مجاورة.',
+    h_rise_t: 'ارتفاع عن خط الأساس', h_rise_d: '{vel} مقابل {base} في خط الأساس ({pct}). راقبها وخطط لفحص.',
     range: 'النطاق الزمني', r1: 'دقيقة', r5: '5 دقائق', r15: '15 دقيقة', r60: 'ساعة',
     spectrum: 'طيف الاهتزاز', spectrum_sub: 'سرعة الاهتزاز حسب التردد، المحور {axis}',
     trend: 'سرعة الاهتزاز عبر الوقت', trend_sub: 'مع حدود مناطق ISO للفئة {cls}',
     chart: 'رسم', table: 'جدول',
+    ana_empty: 'ما فيه بيانات مباشرة. وصّل الجهاز أو جرّب العرض التجريبي عشان تشوف الطيف والاتجاه.',
     events: 'التنبيهات والأحداث', no_events: 'لا توجد أحداث بعد.',
+    connection: 'الاتصال', ble_help: 'مساعدة الاتصال',
     device: 'الجهاز', fw: 'البرنامج', board: 'اللوحة', conn: 'الاتصال', fs: 'معدل العينات',
     uptime: 'مدة التشغيل', packets: 'القراءات المستلمة', last: 'آخر تحديث', sensors: 'الحساسات',
-    identify: 'تحديد الجهاز (وميض)', export: 'تصدير CSV', clear: 'مسح البيانات',
+    identify: 'تحديد الجهاز (وميض)', export: 'تصدير القراءات المباشرة CSV', clear: 'مسح القراءات المباشرة',
+    settings: 'الإعدادات', th_auto: 'تلقائي', th_light: 'فاتح', th_dark: 'داكن',
+    s_dur: 'مدة القياس', s_line: 'تردد الكهرباء', sec: '{n} ث',
+    s_wake: 'إبقاء الشاشة شغالة أثناء الاتصال', s_vibe: 'اهتزاز الجوال عند التنبيه',
+    s_beep: 'صوت تنبيه عند المنطقة C أو D', s_auto: 'اتصال تلقائي بآخر جهاز عند فتح التطبيق',
+    data: 'البيانات', storage_used: '{m} آلة · {n} قياس محفوظ',
+    data_note: 'القياسات محفوظة في هذا الجهاز فقط. خذ نسخة احتياطية بين فترة وثانية.',
+    export_meas: 'تصدير القياسات CSV', backup: 'نسخة احتياطية', restore: 'استرجاع نسخة',
+    restored: 'تم استرجاع {m} آلة و{n} قياس', restore_bad: 'الملف مو نسخة MANTIS صالحة.',
+    storage_full: 'مساحة التخزين ممتلئة. خذ نسخة احتياطية واحذف قياسات قديمة.',
+    report_title: 'تقرير فحص الاهتزاز', report_route: 'تقرير جولة الفحص', generated: 'تاريخ التقرير',
+    location: 'الموقع', cls_short: 'الفئة', status: 'الحالة', summary: 'الملخص', latest_spec: 'طيف آخر قياس',
+    nothing_report: 'ما فيه قياسات محفوظة للتقرير.', not_measured: 'لم تُفحص',
+    report_foot: 'حدود المناطق حسب ISO 10816-1 (سرعة RMS، 10 هرتز فما فوق). التلميحات مبدئية وتحتاج تأكيد بفحص فني.',
+    copied: 'تم نسخ الملخص',
     ev_zone: 'حالة الاهتزاز صارت «{zone}»', ev_conn: 'تم الاتصال ({src})', ev_disc: 'انقطع الاتصال',
     ev_ir: 'حرارة السطح تجاوزت {lim}', ev_ir_ok: 'حرارة السطح رجعت تحت {lim}', ev_cls: 'تم تغيير فئة الآلة إلى {cls}',
-    ago: 'منذ {n} ث', ago_m: 'منذ {n} د',
-    col_band: 'النطاق', col_val: 'السرعة', col_time: 'الوقت', col_zone: 'المنطقة', col_acc: 'التسارع', col_f: 'التردد', col_ir: 'سطح', col_t: 'داخلي', col_snd: 'الصوت',
+    ev_meas: 'قياس محفوظ: {name} · {vel}',
+    col_band: 'النطاق', col_val: 'السرعة', col_time: 'الوقت', col_date: 'التاريخ', col_zone: 'المنطقة', col_change: 'التغير',
+    col_acc: 'التسارع', col_f: 'التردد', col_ir: 'سطح', col_t: 'داخلي', col_snd: 'الصوت', col_note: 'ملاحظة',
     src_ble: 'بلوتوث', src_usb: 'USB', src_demo: 'تجريبي',
     no_ble: 'متصفحك لا يدعم Web Bluetooth. استخدم Chrome أو Edge على الكمبيوتر أو أندرويد.',
     no_ble_ios: 'متصفح Safari في الآيفون لا يدعم البلوتوث من صفحات الويب. حمّل تطبيق Bluefy من App Store وافتح الرابط منه.',
@@ -499,28 +921,33 @@ const I18N = {
     no_serial: 'متصفحك لا يدعم Web Serial. استخدم Chrome أو Edge على الكمبيوتر.',
     ble_off: 'البلوتوث مقفل في الجهاز. شغّله من الإعدادات ثم حاول مرة ثانية.',
     err_conn: 'تعذر الاتصال: {msg}', identify_sent: 'راقب لمبة الجهاز: بتومض أبيض 3 ثواني.',
-    exported: 'تم تصدير {n} قراءة', cleared: 'تم مسح البيانات', demo_note: 'هذه بيانات تجريبية وليست من جهاز حقيقي.',
-    u_mms: 'مم/ث', u_mg: 'mg', u_hz: 'هرتز', u_c: '°م', u_hpa: 'هكتوباسكال', u_db: 'dB(A)', u_mv: 'مللي فولت', u_rpm: 'دورة/د',
+    exported: 'تم تصدير {n} قراءة', cleared: 'تم مسح القراءات المباشرة', demo_note: 'هذه بيانات تجريبية وليست من جهاز حقيقي.',
+    u_mms: 'مم/ث', u_mg: 'mg', u_hz: 'هرتز', u_c: '°م', u_hpa: 'hPa', u_db: 'dB(A)', u_mv: 'مللي فولت', u_rpm: 'دورة/د',
     s_imu: 'الاهتزاز', s_hts: 'الحرارة والرطوبة', s_lps: 'الضغط', s_mic: 'الميكروفون', s_mlx: 'حرارة IR', s_pz: 'البيزو',
     on: 'يعمل', off: 'غير موصول',
   },
   en: {
     subtitle: 'Multimodal technical inspection system',
-    connect_ble: 'Connect Bluetooth', connect_usb: 'Connect USB', demo: 'Demo', disconnect: 'Disconnect', theme: 'Theme',
+    tab_live: 'Live', tab_analysis: 'Analysis', tab_machines: 'Machines', tab_device: 'Device', tabs_label: 'App sections',
+    connect: 'Connect', connect_ble: 'Connect Bluetooth', connect_usb: 'Connect USB', demo: 'Demo', disconnect: 'Disconnect',
+    theme: 'Theme', language: 'Language',
     st_off: 'Not connected', st_connecting: 'Connecting…', st_reconnecting: 'Reconnecting…',
-    st_ble: 'Connected via Bluetooth', st_usb: 'Connected via USB', st_demo: 'Demo mode', st_stale: 'No recent data',
+    st_ble: 'Connected via Bluetooth', st_usb: 'Connected via USB', st_demo: 'Simulated data', st_stale: 'No recent data',
+    sh_off: 'Offline', sh_connecting: 'Connecting…', sh_reconnecting: 'Reconnecting…', sh_ble: 'Bluetooth', sh_usb: 'USB', sh_demo: 'Demo', sh_stale: 'Stalled',
     empty_title: 'Connect a MANTIS device to start inspecting',
-    empty_intro: 'This dashboard shows the machine condition live: vibration, temperature and sound.',
+    empty_intro: 'See the machine condition live (vibration, temperature and sound) and keep each machine’s measurements to follow it over time.',
+    steps_title: 'How to connect',
     empty_step1: 'Power the device. A short blink every 1.5 s means it is ready to connect.',
     empty_step2: 'Press “Connect Bluetooth” and pick MANTIS from the list.',
     empty_step3: 'Attach the device to the machine surface (magnets down); readings appear within a second.',
-    empty_alt: 'Device plugged in with a cable? Use “Connect USB”. Want to see the dashboard without a device? Try “Demo”.',
+    empty_alt: 'Device plugged in with a cable? Use “Connect USB”.',
+    not_showing: 'Device not in the list?',
     first_title: 'First reading', first_create: 'Create first reading', first_wait: 'Waiting for a new reading from the device…',
     first_need: 'Connect the device over Bluetooth or USB to create a real reading.',
     first_ready: 'Device connected. Press the button to save the first real reading.',
     first_connected_wait: 'Bluetooth is connected, but no measurements have arrived. Wait briefly; if this continues, restart the board and page.',
     first_done: '✓ First reading completed at {time}: vibration {vel} mm/s, sound {snd} dB(A).',
-    first_saved: 'First device reading saved.',
+    first_saved: 'First device reading saved.', first_row: 'First reading',
     browser_ok: 'Works in Chrome or Edge (desktop or Android).',
     machine_condition: 'Machine condition', vel_label: 'Vibration velocity (RMS, 10 Hz and up)',
     zone: 'Zone',
@@ -533,10 +960,9 @@ const I18N = {
     iso_class: 'Machine class (ISO 10816)',
     cls1: 'I: small machines up to 15 kW', cls2: 'II: medium, 15 to 75 kW',
     cls3: 'III: large, rigid foundation', cls4: 'IV: large, flexible foundation',
-    dom_freq: 'Dominant frequency',
-    rpm_equiv: '{rpm} RPM if this is the running speed',
+    dom_freq: 'Dominant frequency', rpm_equiv: '≈ {rpm} RPM if this is the running speed',
     peak_amp: 'Peak level', axis: 'Strongest axis', sample_rate: 'Sample rate',
-    no_dom: 'No clear frequency', no_dom_sub: 'Vibration is below the measurement floor; the machine is probably stopped.',
+    no_dom: 'No clear frequency', no_dom_sub: 'Vibration is below the measurement floor.',
     acc: 'Acceleration (RMS)', acc_sub: 'Peak {apk} · crest factor {crest}',
     ir: 'Surface temperature (IR)', ir_sub: 'Ambient {amb}', ir_missing: 'Not connected', ir_hint: 'Wire an MLX90614 to A4/A5',
     int_temp: 'Temperature inside device', int_sub: 'Humidity {rh}',
@@ -544,18 +970,76 @@ const I18N = {
     sound: 'Sound level', sound_sub: '{level} · approx. ±3',
     snd_quiet: 'Quiet', snd_normal: 'Normal', snd_loud: 'Loud', snd_danger: 'Hearing hazard, wear ear protection',
     piezo: 'Contact sensor (piezo)', piezo_sub: 'Impacts: {n} · RMS {rms}', piezo_off: 'Disabled', piezo_hint: 'Enable PIEZO_ENABLED in the firmware',
+    inspect: 'Record a measurement', inspect_sub: 'A steady average saved to the machine’s log',
+    machine: 'Machine', pick_machine: 'Choose a machine…', new_machine_opt: '+ New machine…', add_machine: 'Add machine',
+    record: 'Record measurement', measuring: 'Measuring…', left_s: '{n} s left', cancel: 'Cancel',
+    cap_avg: 'Average so far', cap_hold: 'Keep the device on the same spot and don’t move it.',
+    need_live: 'Connect the device first to record a measurement.', need_machine: 'Choose the machine you are inspecting, or add a new one.',
+    last_meas: 'Last {vel} · {ago}', no_meas_yet: 'No measurements for this machine yet. The first one becomes its baseline.',
+    res_title: 'Measurement result', save: 'Save', discard: 'Discard', note: 'Note (optional)', note_ph: 'e.g. unusual bearing noise',
+    res_first: 'This is the first measurement; it becomes this machine’s baseline.',
+    warn_unstable: 'The reading fluctuated ({cv}). Check the device is firmly attached and repeat if needed.',
+    warn_stopped: 'Vibration is very low; the machine looks stopped.',
+    warn_few: 'Not enough readings arrived from the device. Try again.',
+    cap_aborted: 'Measurement stopped because the connection dropped.', saved_meas: 'Measurement saved for “{name}”',
+    base: 'Baseline', vs_base: 'Against baseline',
+    ch_stable: 'Stable', ch_rise: 'Rising', ch_double: 'Doubled', ch_drop: 'Dropped',
+    ago: '{n} s ago', ago_m: '{n} min ago', ago_h: '{n} h ago', ago_d: '{n} d ago',
+    machines_title: 'Machines', machines_n: '{n} machines', search_ph: 'Search by name or location',
+    route_report: 'Route report', route_today: 'Inspected today', route_progress: '{done} of {total}',
+    no_machines_t: 'No machines yet',
+    no_machines_d: 'Add each machine you inspect (pump, motor, fan…) and record a measurement. The app keeps the measurements and compares them over time, so you catch a problem before it grows.',
+    no_match: 'No results.', never: 'Not inspected yet',
+    back: 'Machines', edit: 'Edit', delete: 'Delete', del_machine: 'Delete machine',
+    confirm_del_machine: 'Delete “{name}” and all its measurements ({n})? This can’t be undone.', confirm_del_meas: 'Delete this measurement?',
+    set_base: 'Use as baseline', record_now: 'Record measurement now', report: 'PDF report', share: 'Share',
+    latest: 'Latest', meas_count: 'Measurements', history: 'Vibration history', history_sub: 'Each point is a saved measurement · dashed line is the baseline',
+    history_one: 'Record a second measurement to see the trend.', measurements: 'Saved measurements', tag_demo: 'demo',
+    machine_new: 'New machine', machine_edit: 'Edit machine',
+    f_name: 'Machine name', f_name_ph: 'e.g. Cooling pump 1', f_loc: 'Location (optional)', f_loc_ph: 'e.g. Pump room',
+    f_cls: 'Machine class (ISO 10816)', f_rpm: 'Running speed RPM (optional)', f_rpm_hint: 'Printed on the motor nameplate; it sharpens the fault hints.',
+    name_req: 'Enter a machine name.',
+    hints: 'Fault hints', hints_disc: 'Early hints from the spectrum shape, not a final diagnosis. Confirm with a technical inspection.',
+    rpm: 'Running speed', use_dom: 'From dominant frequency',
+    rpm_need: 'Enter the running speed to see 1×, 2×, 3× markers and sharper hints.', rpm_low: 'Running speed is below the measurement range (600 RPM).',
+    h_ok_t: 'No clear fault indicators', h_ok_d: 'Vibration is acceptable and has not risen above the baseline.',
+    h_idle_t: 'Machine stopped or quiet', h_idle_d: 'Run the machine so its vibration can be assessed.',
+    h_unb_t: 'Possible unbalance', h_unb_d: 'Strongest peak at running speed (1×). Check for dirt build-up on the fan or rotor and broken blades, then rebalance.',
+    h_mis_t: 'Possible misalignment', h_mis_d: 'Strong peak at twice running speed (2×). Check coupling alignment between motor and load and the coupling insert.',
+    h_loose_t: 'Possible mechanical looseness', h_loose_d: 'Many harmonics (3× and up). Check base and mounting bolts, cracks and bearing clearance.',
+    h_elec_t: 'Possible electrical problem', h_elec_d: 'Peak at {f} Hz (twice line frequency). Check phase voltage balance, air gap and rotor bars.',
+    h_bear_t: 'Possible bearing wear or poor lubrication', h_bear_d: 'Impacts or high-frequency energy (crest factor {crest}). Check lubrication, bearing temperature and noise.',
+    h_unk_t: 'Unclear pattern', h_unk_d: 'Vibration is high but the spectrum matches no known pattern. Could be resonance or vibration from a nearby machine.',
+    h_rise_t: 'Above baseline', h_rise_d: '{vel} against {base} at baseline ({pct}). Watch it and plan an inspection.',
     range: 'Time range', r1: '1 min', r5: '5 min', r15: '15 min', r60: '1 hour',
     spectrum: 'Vibration spectrum', spectrum_sub: 'Velocity by frequency, {axis} axis',
     trend: 'Vibration velocity over time', trend_sub: 'With ISO zone limits for class {cls}',
     chart: 'Chart', table: 'Table',
+    ana_empty: 'No live data. Connect the device or try the demo to see the spectrum and trend.',
     events: 'Alerts and events', no_events: 'No events yet.',
+    connection: 'Connection', ble_help: 'Connection help',
     device: 'Device', fw: 'Firmware', board: 'Board', conn: 'Connection', fs: 'Sample rate',
     uptime: 'Uptime', packets: 'Readings received', last: 'Last update', sensors: 'Sensors',
-    identify: 'Identify (blink)', export: 'Export CSV', clear: 'Clear data',
+    identify: 'Identify (blink)', export: 'Export live readings CSV', clear: 'Clear live readings',
+    settings: 'Settings', th_auto: 'Auto', th_light: 'Light', th_dark: 'Dark',
+    s_dur: 'Measurement length', s_line: 'Mains frequency', sec: '{n} s',
+    s_wake: 'Keep the screen on while connected', s_vibe: 'Vibrate the phone on alerts',
+    s_beep: 'Alert sound on zone C or D', s_auto: 'Reconnect to the last device when the app opens',
+    data: 'Data', storage_used: '{m} machines · {n} measurements saved',
+    data_note: 'Measurements are stored on this device only. Take a backup now and then.',
+    export_meas: 'Export measurements CSV', backup: 'Backup', restore: 'Restore backup',
+    restored: 'Restored {m} machines and {n} measurements', restore_bad: 'That file isn’t a valid MANTIS backup.',
+    storage_full: 'Storage is full. Take a backup and delete old measurements.',
+    report_title: 'Vibration inspection report', report_route: 'Inspection route report', generated: 'Report date',
+    location: 'Location', cls_short: 'Class', status: 'Status', summary: 'Summary', latest_spec: 'Latest spectrum',
+    nothing_report: 'No saved measurements to report.', not_measured: 'Not measured',
+    report_foot: 'Zone limits per ISO 10816-1 (RMS velocity, 10 Hz and up). Hints are preliminary and need confirming by a technical inspection.',
+    copied: 'Summary copied',
     ev_zone: 'Vibration condition is now “{zone}”', ev_conn: 'Connected ({src})', ev_disc: 'Disconnected',
     ev_ir: 'Surface temperature above {lim}', ev_ir_ok: 'Surface temperature back below {lim}', ev_cls: 'Machine class set to {cls}',
-    ago: '{n} s ago', ago_m: '{n} min ago',
-    col_band: 'Band', col_val: 'Velocity', col_time: 'Time', col_zone: 'Zone', col_acc: 'Accel.', col_f: 'Freq.', col_ir: 'Surface', col_t: 'Internal', col_snd: 'Sound',
+    ev_meas: 'Measurement saved: {name} · {vel}',
+    col_band: 'Band', col_val: 'Velocity', col_time: 'Time', col_date: 'Date', col_zone: 'Zone', col_change: 'Change',
+    col_acc: 'Accel.', col_f: 'Freq.', col_ir: 'Surface', col_t: 'Internal', col_snd: 'Sound', col_note: 'Note',
     src_ble: 'Bluetooth', src_usb: 'USB', src_demo: 'demo',
     no_ble: 'This browser has no Web Bluetooth. Use Chrome or Edge on desktop or Android.',
     no_ble_ios: 'Safari on iPhone cannot use Bluetooth from web pages. Install the Bluefy app from the App Store and open this link in it.',
@@ -568,9 +1052,9 @@ const I18N = {
     try_again: 'Try again', show_all: 'Show all nearby devices',
     not_mantis: 'That device isn’t MANTIS. Pick the one named MANTIS.',
     no_serial: 'This browser has no Web Serial. Use Chrome or Edge on desktop.',
-    ble_off: 'Bluetooth is turned off on this computer. Turn it on and try again.',
+    ble_off: 'Bluetooth is turned off on this device. Turn it on and try again.',
     err_conn: 'Could not connect: {msg}', identify_sent: 'Watch the device LED: it flashes white for 3 seconds.',
-    exported: 'Exported {n} readings', cleared: 'Data cleared', demo_note: 'This is simulated data, not from a real device.',
+    exported: 'Exported {n} readings', cleared: 'Live readings cleared', demo_note: 'This is simulated data, not from a real device.',
     u_mms: 'mm/s', u_mg: 'mg', u_hz: 'Hz', u_c: '°C', u_hpa: 'hPa', u_db: 'dB(A)', u_mv: 'mV', u_rpm: 'RPM',
     s_imu: 'Vibration', s_hts: 'Temp & humidity', s_lps: 'Pressure', s_mic: 'Microphone', s_mlx: 'IR temp', s_pz: 'Piezo',
     on: 'OK', off: 'Not connected',
@@ -590,11 +1074,23 @@ function t(key, vars) {
 }
 function fmt(v, d) { return v == null || Number.isNaN(v) ? '—' : Number(v).toFixed(d); }
 function fmtInt(v) { return v == null || Number.isNaN(v) ? '—' : Math.round(v).toLocaleString('en-US'); }
+function round(v, d) { return v == null || !Number.isFinite(v) ? null : Math.round(v * Math.pow(10, d)) / Math.pow(10, d); }
+// keeps signs, units and digits in reading order inside Arabic sentences
+function ltr(s) { return '⁦' + s + '⁩'; }
+// a Latin unit stays glued to its number; an Arabic one reads after it, outside the isolate
+function qty(v, d, unitKey) {
+  const u = t(unitKey);
+  return /[؀-ۿ]/.test(u) ? ltr(fmt(v, d)) + ' ' + u : ltr(fmt(v, d) + ' ' + u);
+}
+function velText(v) { return qty(v, 2, 'u_mms'); }
+function pctText(r) { return ltr((r >= 0 ? '+' : '−') + Math.abs(Math.round(r * 100)) + '%'); }
 function h(tag, attrs, ...kids) {
   const el = document.createElement(tag);
   if (attrs) for (const k in attrs) {
+    if (attrs[k] == null || attrs[k] === false) continue;
     if (k === 'class') el.className = attrs[k];
     else if (k === 'style') el.style.cssText = attrs[k];
+    else if (k.startsWith('on')) el[k] = attrs[k];
     else el.setAttribute(k, attrs[k]);
   }
   for (const c of kids) if (c != null && c !== false) el.append(c.nodeType ? c : String(c));
@@ -602,6 +1098,19 @@ function h(tag, attrs, ...kids) {
 }
 function numEl(text, cls) { return h('span', { class: 'num' + (cls ? ' ' + cls : '') }, text); }
 function clock(ms) { return new Date(ms).toLocaleTimeString('en-GB', { hour12: false }); }
+function locale() { return state.lang === 'ar' ? 'ar-u-ca-gregory-nu-latn' : 'en-GB'; }
+function dayLabel(ms) { return new Date(ms).toLocaleDateString(locale(), { day: 'numeric', month: 'short' }); }
+function dateLabel(ms) { return new Date(ms).toLocaleDateString(locale(), { day: 'numeric', month: 'short', year: 'numeric' }); }
+function dateTime(ms) { return dateLabel(ms) + ' ' + clock(ms).slice(0, 5); }
+function agoText(ms) {
+  const s = Math.max(0, Math.round((Date.now() - ms) / 1000));
+  if (s < 90) return t('ago', { n: s });
+  if (s < 5400) return t('ago_m', { n: Math.round(s / 60) });
+  if (s < 129600) return t('ago_h', { n: Math.round(s / 3600) });
+  return t('ago_d', { n: Math.round(s / 86400) });
+}
+function startOfToday() { const d = new Date(); d.setHours(0, 0, 0, 0); return d.getTime(); }
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
 function niceCeil(v) {
   const p = Math.pow(10, Math.floor(Math.log10(v)));
   for (const m of [1, 1.2, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10]) if (m * p >= v) return m * p;
@@ -620,6 +1129,53 @@ function decodeSens(m) {
 function setStatusVars(el, st) {
   el.style.setProperty('--st', 'var(--' + st + ')');
   el.style.setProperty('--st-ink', st === 'warning' ? '#0b0b0b' : '#ffffff');
+  return el;
+}
+function chip(st, icon, label, small, title) {
+  return setStatusVars(h('span', { class: 'chip' + (small ? ' sm' : ''), title }, h('span', { class: 'ic', 'aria-hidden': 'true' }, icon), label), st);
+}
+function zoneChip(z, small, short) {
+  if (!z) return chip('muted', '…', t('no_data'), small);
+  const s = STATUS[z];
+  return chip(s.st, s.icon, short ? s.key + ' · ' + t('zone' + s.key + '_t') : zoneName(z), small);
+}
+function changeChip(ch, small) {
+  return chip(ch.st, ch.icon, h('span', null, numEl((ch.r >= 0 ? '+' : '−') + Math.abs(Math.round(ch.r * 100)) + '%'), ' ' + t(ch.key)), small, t('vs_base'));
+}
+function svgIcon(d, size) {
+  const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  s.setAttribute('width', size || 16); s.setAttribute('height', size || 16); s.setAttribute('viewBox', '0 0 24 24');
+  s.setAttribute('aria-hidden', 'true');
+  s.innerHTML = '<path d="' + d + '" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>';
+  return s;
+}
+const ICON = {
+  back: 'M9 6l6 6-6 6', edit: 'M4 20h4L19 9l-4-4L4 16zM13 7l4 4', share: 'M12 3v12M7 8l5-5 5 5M5 14v5h14v-5',
+  doc: 'M6 3h9l4 4v14H6zM14 3v5h5M9 13h7M9 17h5', trash: 'M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3',
+  flag: 'M5 21V4M5 4h11l-2 4 2 4H5',
+};
+function sparkline(values, cls) {
+  const pts = values.filter((v) => v != null);
+  if (pts.length < 2) return null;
+  const W = 200, H = 30, pad = 4;
+  let lo = Math.min(...pts), hi = Math.max(...pts);
+  if (hi - lo < 1e-9) { lo -= 1; hi += 1; }
+  const n = values.length;
+  let d = '', last = null;
+  values.forEach((v, i) => {
+    if (v == null) return;
+    const x = (i / (n - 1)) * W, y = pad + (1 - (v - lo) / (hi - lo)) * (H - 2 * pad);
+    d += (d ? 'L' : 'M') + x.toFixed(1) + ',' + y.toFixed(1);
+    last = [x, y];
+  });
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('class', 'spark' + (cls ? ' ' + cls : ''));
+  svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
+  svg.setAttribute('preserveAspectRatio', 'none');
+  svg.setAttribute('aria-hidden', 'true');
+  svg.innerHTML = '<path d="' + d + '" fill="none" stroke="var(--axis)" stroke-width="2" vector-effect="non-scaling-stroke" stroke-linejoin="round" stroke-linecap="round"/>' +
+    '<circle cx="' + last[0] + '" cy="' + last[1] + '" r="3.5" fill="var(--series)" stroke="var(--surface)" stroke-width="2" vector-effect="non-scaling-stroke"/>';
+  return svg;
 }
 
 // --------------------------------------------------------------- state ---
@@ -628,12 +1184,17 @@ const state = {
   theme: store.get('theme', 'auto'),
   isoClass: store.get('cls', 2),
   rangeMin: store.get('range', 5),
+  settings: Object.assign({ dur: 15, lineHz: 60, wake: true, vibe: true, beep: false, autoConn: true }, store.get('settings', {})),
   view: { spec: 'chart', trend: 'chart' },
+  tab: 'live', machineView: null, pushedDetail: false,
+  machineId: store.get('selMachine', null),
+  rpmManual: store.get('rpm', null),
+  search: '',
   source: null,          // 'ble' | 'usb' | 'demo'
   conn: 'off',           // off | connecting | reconnecting | live
   readings: [],
   events: [],
-  spectrum: null,        // { bands: [mm/s], fs, axis }
+  spectrum: null,        // { bands: [mm/s], fs, axis, f, fv }
   info: {},
   packets: 0,
   lastRx: 0,
@@ -642,8 +1203,65 @@ const state = {
   ble: null, serial: null, demoTimer: null,
   pendingVib: null, specChunks: { seq: -1, parts: [], n: 0 },
   firstReading: store.get('firstReading', null), firstReadingPending: false, firstReadingStarted: 0,
-  hover: { trend: null, spec: null },
+  capture: null, result: null,
+  hover: { trend: null, spec: null, hist: null },
+  heroVisible: true,
+  wakeLock: null, wakeBusy: false,
 };
+
+// ------------------------------------------------- saved machines + log ---
+// Everything lives in this browser's storage; Backup/Restore moves it.
+const db = {
+  machines: [].concat(store.get('machines', [])).filter((m) => m && m.id),
+  meas: [].concat(store.get('meas', [])).filter((x) => x && x.id),
+  rev: 0,
+};
+function saveDb() {
+  db.rev++;
+  sumCache.key = -1;
+  try {
+    localStorage.setItem('mantis.machines', JSON.stringify(db.machines));
+    localStorage.setItem('mantis.meas', JSON.stringify(db.meas));
+  } catch (e) {
+    toast(t('storage_full'));
+    return false;
+  }
+  // ask the browser not to evict the log under storage pressure
+  if (navigator.storage && navigator.storage.persist && !saveDb.asked) { saveDb.asked = true; navigator.storage.persist().catch(() => {}); }
+  scheduleRender();
+  return true;
+}
+function machineById(id) { return id ? db.machines.find((m) => m.id === id) || null : null; }
+function changeInfo(vel, baseVel) {
+  if (vel == null || baseVel == null || baseVel < DOMINANT_MIN) return null;
+  const r = (vel - baseVel) / baseVel;
+  if (r >= RISE_SERIOUS) return { r, st: 'serious', icon: '▲', key: 'ch_double' };
+  if (r >= RISE_WARN) return { r, st: 'warning', icon: '▲', key: 'ch_rise' };
+  if (r <= -0.5) return { r, st: 'muted', icon: '▼', key: 'ch_drop' };
+  return { r, st: 'good', icon: '✓', key: 'ch_stable' };
+}
+// per-machine summary, rebuilt only when the log changes
+let sumCache = { key: -1, map: new Map() };
+function summaries() {
+  if (sumCache.key === db.rev) return sumCache.map;
+  const by = new Map(db.machines.map((mc) => [mc.id, []]));
+  for (const x of db.meas) if (by.has(x.machineId)) by.get(x.machineId).push(x);
+  const map = new Map();
+  for (const mc of db.machines) {
+    const list = by.get(mc.id).sort((a, b) => a.time - b.time);
+    const last = list[list.length - 1] || null;
+    const base = list.find((x) => x.id === mc.baselineId) || list[0] || null;
+    const z = last ? zoneOf(last.vel, mc.cls) : 0;
+    const ch = last && base && last !== base ? changeInfo(last.vel, base.vel) : null;
+    const rank = last ? Math.max(z ? RANK[STATUS[z].st] : 0, ch ? RANK[ch.st] : 0) : -1;
+    map.set(mc.id, { list, last, base, z, ch, rank });
+  }
+  sumCache = { key: db.rev, map };
+  return map;
+}
+function summaryOf(id) { return summaries().get(id) || { list: [], last: null, base: null, z: 0, ch: null, rank: -1 }; }
+function attentionCount() { let n = 0; for (const s of summaries().values()) if (s.rank >= 1) n++; return n; }
+function byName(a, b) { return a.name.localeCompare(b.name, state.lang); }
 
 // ---------------------------------------------------------- ingestion ---
 function ingest(r) {
@@ -656,6 +1274,7 @@ function ingest(r) {
   if (!r.backfill) {
     state.lastRx = Date.now();
     state.packets++;
+    if (state.capture && r.vel != null) state.capture.rs.push(r);
     if (state.firstReadingPending && (state.source === 'ble' || state.source === 'usb') && r.vel != null) {
       state.firstReading = { time: r.time, vel: r.vel, snd: r.snd, seq: r.seq, source: state.source };
       store.set('firstReading', state.firstReading);
@@ -668,16 +1287,30 @@ function ingest(r) {
       state.zoneCandN = z === state.zoneCand ? state.zoneCandN + 1 : 1;
       state.zoneCand = z;
       if (state.zoneCandN >= 3 || !state.reportedZone) {
-        if (state.reportedZone) addEvent(STATUS[z].st, STATUS[z].icon, 'ev_zone', { zoneKey: z });
+        if (state.reportedZone) {
+          addEvent(STATUS[z].st, STATUS[z].icon, 'ev_zone', { zoneKey: z });
+          if (z >= 3 && z > state.reportedZone) alertUser(z);
+        }
         state.reportedZone = z;
       }
     } else {
       state.zoneCandN = 0;
     }
     if (r.ir != null) {
-      if (!state.irHigh && r.ir > IR_LIMIT) { state.irHigh = true; addEvent('critical', '!', 'ev_ir', { lim: IR_LIMIT + ' ' + t('u_c') }); }
+      if (!state.irHigh && r.ir > IR_LIMIT) { state.irHigh = true; addEvent('critical', '!', 'ev_ir', { lim: IR_LIMIT + ' ' + t('u_c') }); alertUser(4); }
       else if (state.irHigh && r.ir < IR_LIMIT - 2) { state.irHigh = false; addEvent('good', '✓', 'ev_ir_ok', { lim: IR_LIMIT + ' ' + t('u_c') }); }
     }
+  }
+  scheduleRender();
+}
+
+function setSpectrum(sp) {
+  state.spectrum = sp;
+  const c = state.capture;
+  if (c && sp && sp.bands.length === BANDS) {
+    if (!c.spec) c.spec = new Array(BANDS).fill(0);
+    sp.bands.forEach((v, i) => { c.spec[i] += v * v; });   // energy average
+    c.specN++;
   }
   scheduleRender();
 }
@@ -687,6 +1320,52 @@ function addEvent(st, icon, key, vars) {
   if (state.events.length > 200) state.events.length = 200;
   scheduleRender();
 }
+
+// ------------------------------------------------------ alerts + screen ---
+let audioCtx = null;
+function beep(z) {
+  try {
+    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    const now = audioCtx.currentTime;
+    for (let i = 0; i < (z === 4 ? 3 : 2); i++) {
+      const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+      o.frequency.value = z === 4 ? 1046 : 880;
+      g.gain.setValueAtTime(0.0001, now + i * 0.28);
+      g.gain.exponentialRampToValueAtTime(0.25, now + i * 0.28 + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, now + i * 0.28 + 0.2);
+      o.connect(g).connect(audioCtx.destination);
+      o.start(now + i * 0.28);
+      o.stop(now + i * 0.28 + 0.22);
+    }
+  } catch (e) { /* no audio */ }
+}
+function alertUser(z) {
+  if (state.settings.vibe && navigator.vibrate) navigator.vibrate(z === 4 ? [300, 120, 300, 120, 300] : [250, 120, 250]);
+  if (state.settings.beep) beep(z);
+}
+// browsers only start audio after a tap, so warm the context up on the first one
+document.addEventListener('pointerdown', () => {
+  if (state.settings.beep && !audioCtx) try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { /* none */ }
+}, { once: true });
+
+async function updateWakeLock() {
+  if (!('wakeLock' in navigator) || state.wakeBusy) return;
+  const want = state.settings.wake && !!state.source && document.visibilityState === 'visible';
+  state.wakeBusy = true;
+  try {
+    if (want && !state.wakeLock) {
+      const lock = await navigator.wakeLock.request('screen');
+      state.wakeLock = lock;
+      lock.addEventListener('release', () => { if (state.wakeLock === lock) state.wakeLock = null; });
+    } else if (!want && state.wakeLock) {
+      const lock = state.wakeLock;
+      state.wakeLock = null;
+      await lock.release();
+    }
+  } catch (e) { /* denied (battery saver) */ }
+  state.wakeBusy = false;
+}
+document.addEventListener('visibilitychange', updateWakeLock);
 
 // ------------------------------------------------------- BLE transport ---
 function decodeVib(dv) {
@@ -725,9 +1404,8 @@ function onBleSpec(e) {
     const fs = dv.getUint16(2, true) / 10;
     state.fs = fs;
     const last = state.readings[state.readings.length - 1];
-    state.spectrum = { bands: c.parts.flat().map(decodeBand), fs, axis: last ? last.axis : null, f: last ? last.f : null, fv: last ? last.fv : null };
+    setSpectrum({ bands: c.parts.flat().map(decodeBand), fs, axis: last ? last.axis : null, f: last ? last.f : null, fv: last ? last.fv : null });
     c.n = 5;
-    scheduleRender();
   }
 }
 
@@ -743,24 +1421,54 @@ async function connectBle(showAll) {
       : { filters: [{ services: [SVC] }, { name: 'MANTIS' }], optionalServices: [SVC] });
   } catch (err) {
     // chooser closed without a device: often because MANTIS never showed up
-    if (err && err.name === 'NotFoundError') { $('#bleHelp').hidden = false; return; }
+    if (err && err.name === 'NotFoundError') { showHelp(); return; }
     return toast(t('err_conn', { msg: err && err.message ? err.message : err }));
   }
-  $('#bleHelp').hidden = true;
+  closeHelp();
   try {
     await stopSource();
-    state.ble = { device, ctrl: null, userClosed: false, retries: 0 };
-    device.addEventListener('gattserverdisconnected', onBleGone);
+    await attachDevice(device);
+  } catch (err) {
+    setConn(state.source ? 'live' : 'off');
+    toast(err && err.name === 'NotFoundError' ? t('not_mantis') : t('err_conn', { msg: err && err.message ? err.message : err }));
+  }
+}
+
+async function attachDevice(device) {
+  state.ble = { device, ctrl: null, userClosed: false, retries: 0 };
+  device.addEventListener('gattserverdisconnected', onBleGone);
+  try {
     await bleAttach();
   } catch (err) {
-    const notMantis = err && err.name === 'NotFoundError';
     if (state.ble && state.ble.device === device) {
       state.ble.userClosed = true;
       state.ble = null;
       try { device.gatt.disconnect(); } catch (e) { /* not connected */ }
     }
-    setConn(state.source ? 'live' : 'off');
-    toast(notMantis ? t('not_mantis') : t('err_conn', { msg: err && err.message ? err.message : err }));
+    throw err;
+  }
+}
+
+// A device this browser was allowed before can reconnect without the chooser
+// (Chrome with the Web Bluetooth permissions backend; silently skipped elsewhere)
+async function autoConnect() {
+  if (!state.settings.autoConn || !navigator.bluetooth || !navigator.bluetooth.getDevices || state.source) return;
+  let device;
+  try { device = (await navigator.bluetooth.getDevices()).find((d) => d.name === 'MANTIS'); } catch (e) { return; }
+  if (!device) return;
+  try {
+    if (device.watchAdvertisements) {
+      const ac = new AbortController();
+      const heard = new Promise((res) => device.addEventListener('advertisementreceived', res, { once: true }));
+      await device.watchAdvertisements({ signal: ac.signal });
+      const ok = await Promise.race([heard.then(() => true), new Promise((res) => setTimeout(() => res(false), 10000))]);
+      ac.abort();
+      if (!ok) return;
+    }
+    if (state.source || state.conn !== 'off') return;
+    await attachDevice(device);
+  } catch (e) {
+    if (!state.source) setConn('off');
   }
 }
 
@@ -822,14 +1530,6 @@ async function onBleGone() {
     try { await bleAttach(); return; } catch (e) { /* retry */ }
   }
   if (state.ble === b) { state.ble = null; state.source = null; setConn('off'); }
-}
-
-function parseInfo(s) {
-  for (const part of s.split(';')) {
-    const i = part.indexOf('=');
-    if (i > 0) state.info[part.slice(0, i).trim()] = part.slice(i + 1).trim();
-  }
-  scheduleRender();
 }
 
 // ---------------------------------------------------- USB (Web Serial) ---
@@ -896,21 +1596,22 @@ function onJson(o) {
     t: o.t, rh: o.rh, p: o.p, ir: o.ir, ira: o.ira, snd: o.snd, pzp: o.pzp, pzr: o.pzr, pzi: o.pzi,
     up: o.up, cls: o.cls, sens: decodeSens(o.sens | 0), overrun: false,
   };
-  if (Array.isArray(o.spec)) state.spectrum = { bands: o.spec.map(decodeBand), fs: o.fs, axis: o.axis, f: o.f, fv: o.fv };
+  if (Array.isArray(o.spec)) setSpectrum({ bands: o.spec.map(decodeBand), fs: o.fs, axis: o.axis, f: o.f, fv: o.fv });
   ingest(r);
 }
 
 // --------------------------------------------------------------- demo ---
-// Simulated motor at 1488 RPM: 1x/2x/3x running-speed peaks plus 100 Hz
-// electrical, drifting slowly and rising into zone C once every 90 s
+// Simulated 60 Hz motor at 1776 RPM: 1x/2x/3x running-speed peaks plus
+// 120 Hz electrical, drifting slowly and rising into zone C once every 90 s
+// (the surge grows 2x, so the hints show misalignment)
 function demoReading(tSec, seq, time) {
   const fs = 928.4, df = fs / NFFT;
   const phase = tSec % 90;
   const surge = phase > 55 && phase < 85 ? Math.sin(((phase - 55) / 30) * Math.PI) : 0;
   const rnd = () => Math.random() - 0.5;
-  const f1 = 24.8 + rnd() * 0.12;
+  const f1 = 29.6 + rnd() * 0.12;
   const vel = Math.max(0.05, 1.5 + 0.25 * Math.sin(tSec / 23) + rnd() * 0.1 + surge * 2.2);
-  const peaks = [[f1, 0.82], [2 * f1, 0.42 + surge * 0.35], [3 * f1, 0.18], [100, 0.12], [4 * f1, 0.07]];
+  const peaks = [[f1, 0.82], [2 * f1, 0.3 + surge * 1.1], [3 * f1, 0.16], [120, 0.12], [4 * f1, 0.06]];
   const bands = [];
   let sum = 0;
   for (let b = 0; b < BANDS; b++) {
@@ -923,15 +1624,16 @@ function demoReading(tSec, seq, time) {
   const k = vel / Math.sqrt(sum);
   const spec = bands.map((e) => Math.sqrt(e) * k);
   const arms = vel * 19 + 2 + rnd();
+  const dom = surge > 0.75 ? 2 * f1 : f1;
   return {
     r: {
-      time, seq, vel, arms, apk: arms * (3.0 + Math.random() * 0.4), f: f1, fv: vel * 0.78, axis: 2,
+      time, seq, vel, arms, apk: arms * (3.0 + Math.random() * 0.4), f: dom, fv: vel * 0.72, axis: 2,
       t: 31.2 + 0.4 * Math.sin(tSec / 200) + rnd() * 0.05, rh: 29.4 + rnd() * 0.2, p: 943.6 + rnd() * 0.1,
       ir: 46.5 + surge * 6 + 1.2 * Math.sin(tSec / 140) + rnd() * 0.1, ira: 33.1 + rnd() * 0.05,
       snd: 71 + surge * 5 + rnd() * 1.2, pzp: null, pzr: null, pzi: null, up: Math.round(tSec), cls: state.isoClass,
       sens: decodeSens(0x1F), overrun: false,
     },
-    spectrum: { bands: spec, fs, axis: 2, f: f1, fv: vel * 0.78 },
+    spectrum: { bands: spec, fs, axis: 2, f: dom, fv: vel * 0.72 },
   };
 }
 
@@ -950,20 +1652,21 @@ async function startDemo() {
   }
   state.reportedZone = zoneOf(state.readings[state.readings.length - 1].vel);
   addEvent('good', '✓', 'ev_conn', { srcKey: 'demo' });
-  toast(t('demo_note'));
   setConn('live');
   const t0 = 400;
-  state.demoTimer = setInterval(() => {
+  const tick = () => {
     const d = demoReading(t0 + (Date.now() - start) / 1000, ++seq);
-    state.spectrum = d.spectrum;
+    setSpectrum(d.spectrum);
     ingest(d.r);
-  }, 1100);
+  };
+  tick();
+  state.demoTimer = setInterval(tick, 1100);
 }
 
 // -------------------------------------------------- commands / control ---
 async function sendCommand(bytes) {
   try {
-    if (state.source === 'ble' || (state.ble && state.ble.ctrl)) {
+    if (state.source === 'ble' && state.ble && state.ble.ctrl) {
       await state.ble.ctrl.writeValueWithResponse(new Uint8Array(bytes));
     } else if (state.serial) {
       const text = bytes[0] === 1 ? 'C' + bytes[1] + '\n' : 'I\n';
@@ -975,6 +1678,7 @@ async function sendCommand(bytes) {
 }
 
 async function stopSource() {
+  if (state.capture) cancelCapture();
   if (state.demoTimer) { clearInterval(state.demoTimer); state.demoTimer = null; }
   if (state.ble) {
     const b = state.ble;
@@ -997,6 +1701,198 @@ async function stopSource() {
   setConn('off');
 }
 
+async function disconnect() {
+  const had = state.source && state.source !== 'demo';
+  await stopSource();
+  if (had) addEvent('serious', '!', 'ev_disc');
+}
+
+function canMeasure() {
+  return state.conn === 'live' && !!state.source && (state.source === 'demo' || Date.now() - state.lastRx <= 5000);
+}
+function isStale() {
+  return !!state.source && state.source !== 'demo' && state.conn === 'live' && Date.now() - state.lastRx > 5000;
+}
+function selectMachine(id) {
+  const mc = machineById(id);
+  state.machineId = mc ? mc.id : null;
+  store.set('selMachine', state.machineId);
+  if (mc && mc.cls !== state.isoClass) {
+    state.isoClass = mc.cls;
+    store.set('cls', state.isoClass);
+    state.reportedZone = zoneOf((state.readings[state.readings.length - 1] || {}).vel);
+    sendCommand([1, state.isoClass]);
+  }
+  inspectSig = '';
+  scheduleRender();
+}
+
+// ------------------------------------------------- measurement capture ---
+// Averages every reading over a fixed window into one saved record, so two
+// inspections weeks apart compare like with like.
+function startCapture() {
+  if (!canMeasure()) return toast(t('need_live'));
+  const mc = machineById(state.machineId);
+  if (!mc) {
+    openMachineDialog(null, (m) => { selectMachine(m.id); startCapture(); });
+    return;
+  }
+  state.result = null;
+  state.capture = { machineId: mc.id, start: Date.now(), dur: state.settings.dur * 1000, rs: [], spec: null, specN: 0, source: state.source };
+  state.capture.timer = setInterval(tickCapture, 250);
+  inspectSig = '';
+  scheduleRender();
+}
+function tickCapture() {
+  const c = state.capture;
+  if (!c) return;
+  if (!state.source || state.conn !== 'live') return cancelCapture(t('cap_aborted'));
+  if (Date.now() - c.start >= c.dur) finishCapture();
+  else updateCaptureProgress();
+}
+function cancelCapture(msg) {
+  if (state.capture) clearInterval(state.capture.timer);
+  state.capture = null;
+  inspectSig = '';
+  if (msg) toast(msg);
+  scheduleRender();
+}
+function finishCapture() {
+  const c = state.capture;
+  clearInterval(c.timer);
+  state.capture = null;
+  inspectSig = '';
+  const mc = machineById(c.machineId);
+  const rs = c.rs;
+  if (rs.length < 3 || !mc) { toast(t('warn_few')); scheduleRender(); return; }
+  const vals = (k) => rs.map((x) => x[k]).filter((v) => v != null);
+  const mean = (k) => { const v = vals(k); return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null; };
+  const vels = vals('vel');
+  const avg = vels.reduce((a, b) => a + b, 0) / vels.length;
+  const vel = Math.sqrt(vels.reduce((a, v) => a + v * v, 0) / vels.length);
+  const sd = Math.sqrt(vels.reduce((a, v) => a + (v - avg) * (v - avg), 0) / vels.length);
+  const doms = rs.filter((x) => x.f != null && x.fv != null && x.fv >= DOMINANT_MIN).map((x) => x.f).sort((a, b) => a - b);
+  const axes = vals('axis');
+  const axis = axes.length ? [0, 1, 2].reduce((best, a) => (axes.filter((x) => x === a).length > axes.filter((x) => x === best).length ? a : best), axes[0]) : null;
+  const apks = vals('apk');
+  const spec = c.specN ? c.spec.map((e) => Math.sqrt(e / c.specN)) : state.spectrum ? state.spectrum.bands.slice() : null;
+  state.result = {
+    id: uid(), machineId: mc.id, time: Date.now(), dur: Math.round((Date.now() - c.start) / 1000), n: rs.length,
+    vel: round(vel, 3), velMax: round(Math.max(...vels), 3), cv: round(avg > 0 ? sd / avg : 0, 3),
+    arms: round(mean('arms'), 1), apk: apks.length ? round(Math.max(...apks), 1) : null, crest: round(mean('crest'), 2),
+    f: doms.length ? round(doms[doms.length >> 1], 1) : null, fv: round(mean('fv'), 3), axis,
+    ir: round(mean('ir'), 1), t: round(mean('t'), 1), snd: round(mean('snd'), 1),
+    spec: spec ? spec.map((v) => round(v, 4)) : null, fs: state.fs ? round(state.fs, 1) : null,
+    rpm: mc.rpm || null, demo: c.source === 'demo' ? true : undefined, note: '',
+  };
+  scheduleRender();
+}
+function saveResult() {
+  const m = state.result;
+  const mc = m && machineById(m.machineId);
+  if (!mc) { state.result = null; inspectSig = ''; scheduleRender(); return; }
+  const noteEl = $('#resNote');
+  m.note = noteEl ? noteEl.value.trim().slice(0, 300) : '';
+  db.meas.push(m);
+  if (!mc.baselineId || !db.meas.some((x) => x.id === mc.baselineId)) mc.baselineId = m.id;
+  if (!saveDb()) { db.meas.pop(); return; }
+  addEvent('good', '✓', 'ev_meas', { name: mc.name, vel: velText(m.vel) });
+  toast(t('saved_meas', { name: mc.name }));
+  state.result = null;
+  inspectSig = '';
+  scheduleRender();
+}
+
+// ------------------------------------------------------ fault hints ---
+// Rule-of-thumb patterns from the 64-band velocity spectrum. They only turn
+// into warnings when the vibration is high (zone C/D) or has risen over the
+// machine's baseline; a healthy machine always shows some 1x.
+function bandOf(f, df) { return Math.floor((f / df - K0) / BW); }
+function ampAt(bands, f, df) {
+  const x = f / df - K0, b = Math.floor(x / BW);
+  if (b < 0 || b >= BANDS) return null;
+  let a = bands[b];
+  const pos = x - b * BW;   // bins into the band: a peak near an edge leaks into the neighbour
+  if (pos < 1.5 && b > 0) a = Math.max(a, bands[b - 1]);
+  if (pos > BW - 1.5 && b < BANDS - 1) a = Math.max(a, bands[b + 1]);
+  return a;
+}
+function analyse(o) {
+  const out = { items: [], markers: [], needRpm: false, lowRpm: false };
+  if (!o.bands || o.vel == null) return out;
+  const df = (o.fs || 928) / NFFT;
+  const fTop = (K0 + BW * BANDS) * df;
+  const etot = o.bands.reduce((a, v) => a + v * v, 0) || 1e-12;
+  const z = zoneOf(o.vel, o.cls);
+  const ch = o.base != null && o.base >= DOMINANT_MIN ? (o.vel - o.base) / o.base : null;
+  const lf2 = 2 * (o.lineHz || state.settings.lineHz);
+  const f1 = o.rpm ? o.rpm / 60 : null;
+  if (!f1) out.needRpm = true;
+  else if (f1 < K0 * df) out.lowRpm = true;
+  const pats = [];
+  if (f1 && !out.lowRpm) {
+    const a = [0, 1, 2].map((k) => (k ? ampAt(o.bands, k * f1, df) || 0 : 0));
+    for (let k = 1; k <= 3; k++) if (k * f1 < fTop) out.markers.push({ f: k * f1, label: k + '×' });
+    const seen = new Set([bandOf(f1, df), bandOf(2 * f1, df)]);
+    let eh = 0;
+    for (let k = 3; k <= 6; k++) {
+      const b = bandOf(k * f1, df);
+      if (b >= 0 && b < BANDS && !seen.has(b)) { seen.add(b); eh += o.bands[b] * o.bands[b]; }
+    }
+    if ((a[1] * a[1]) / etot >= 0.5 && a[2] < 0.5 * a[1]) pats.push({ key: 'unb' });
+    if (a[2] >= 0.5 * a[1] && (a[1] * a[1] + a[2] * a[2]) / etot >= 0.4) pats.push({ key: 'mis' });
+    if (eh / etot >= 0.2) pats.push({ key: 'loose' });
+    // 2x line frequency: skipped when it sits in the same band as a running-speed harmonic
+    const clash = [1, 2, 3, 4].some((k) => Math.abs(k * f1 - lf2) < BW * df);
+    if (!clash && lf2 < fTop) {
+      const ae = ampAt(o.bands, lf2, df) || 0;
+      if ((ae * ae) / etot >= 0.25) pats.push({ key: 'elec', vars: { f: lf2 } });
+    }
+    // bearing tones and impacts sit above ~6x running speed
+    let ehf = 0;
+    for (let b = Math.max(0, bandOf(Math.max(6.5 * f1, 150), df) + 1); b < BANDS; b++) ehf += o.bands[b] * o.bands[b];
+    if (ehf / etot >= 0.3 || (o.crest != null && o.crest >= 5)) pats.push({ key: 'bear', vars: { crest: fmt(o.crest, 1) } });
+  } else if (o.crest != null && o.crest >= 5) {
+    pats.push({ key: 'bear', vars: { crest: fmt(o.crest, 1) } });
+  }
+  if (lf2 < fTop) out.markers.push({ f: lf2, label: '2LF' });
+  if (o.vel < RUNNING_MM_S) {
+    out.items.push({ st: 'muted', icon: '–', key: 'h_idle' });
+    return out;
+  }
+  const rise = ch != null && ch >= RISE_WARN;
+  if (rise) {
+    out.items.push({ st: ch >= RISE_SERIOUS ? 'serious' : 'warning', icon: '▲', key: 'h_rise',
+      vars: { vel: velText(o.vel), base: velText(o.base), pct: pctText(ch) } });
+  }
+  if (z >= 3 || rise) {
+    const sev = z === 4 ? 'critical' : ch != null && ch >= RISE_SERIOUS ? 'serious' : 'warning';
+    if (pats.length) for (const p of pats) out.items.push({ st: sev, icon: '!', key: 'h_' + p.key, vars: p.vars });
+    else out.items.push({ st: sev, icon: '?', key: 'h_unk' });
+  } else {
+    out.items.push({ st: 'good', icon: '✓', key: 'h_ok' });
+  }
+  return out;
+}
+function hintsList(res, ul) {
+  ul = ul || h('ul', { class: 'hints' });
+  ul.textContent = '';
+  for (const it of res.items) {
+    ul.append(h('li', null, setStatusVars(h('span', { class: 'ic', 'aria-hidden': 'true' }, it.icon), it.st),
+      h('div', null, h('b', null, t(it.key + '_t', it.vars)), h('span', { class: 'd' }, t(it.key + '_d', it.vars)))));
+  }
+  return ul;
+}
+function effRpm() { const mc = machineById(state.machineId); return (mc && mc.rpm) || state.rpmManual || null; }
+function liveAnalysis(r) {
+  const sp = state.spectrum, mc = machineById(state.machineId);
+  const base = mc ? summaryOf(mc.id).base : null;
+  return analyse({ bands: sp && sp.bands, fs: sp && sp.fs, rpm: effRpm(), vel: r.vel, crest: r.crest, cls: state.isoClass, base: base ? base.vel : null });
+}
+function measAnalysis(m, mc, base) {
+  return analyse({ bands: m.spec, fs: m.fs, rpm: m.rpm || mc.rpm, vel: m.vel, crest: m.crest, cls: mc.cls, base: base && base !== m ? base.vel : null });
+}
+
 // ------------------------------------------------------------- render ---
 let renderQueued = false;
 function scheduleRender() {
@@ -1008,55 +1904,99 @@ function scheduleRender() {
 function setConn(c) {
   state.conn = c;
   if (c === 'off') state.firstReadingPending = false;
+  updateWakeLock();
   scheduleRender();
 }
 
+function connKey() {
+  if (state.conn === 'connecting' || state.conn === 'reconnecting') return state.conn;
+  if (state.conn === 'live' && state.source) return isStale() ? 'stale' : state.source;
+  return 'off';
+}
+function paintDot(dot) {
+  const k = connKey();
+  dot.className = 'dot' + (k === 'connecting' || k === 'reconnecting' ? ' warning pulse' : k === 'stale' ? ' serious' : k === 'off' ? '' : ' good');
+}
 function renderConn() {
-  const stale = state.source && state.source !== 'demo' && state.conn === 'live' && Date.now() - state.lastRx > 5000;
-  document.body.classList.toggle('stale', !!stale);
-  const dot = $('#connDot');
-  dot.className = 'dot';
-  let text;
-  if (state.conn === 'connecting' || state.conn === 'reconnecting') {
-    dot.classList.add('warning', 'pulse');
-    text = t('st_' + state.conn);
-  } else if (state.conn === 'live' && state.source) {
-    dot.classList.add(stale ? 'serious' : 'good');
-    text = stale ? t('st_stale') : t('st_' + state.source);
-  } else {
-    text = t('st_off');
-  }
-  $('#connText').textContent = text;
-  const connected = !!state.source || state.conn === 'reconnecting';
+  const k = connKey();
+  document.body.classList.toggle('stale', k === 'stale');
+  paintDot($('#connDot'));
+  paintDot($('#connDot2'));
+  $('#connText').textContent = t('st_' + k);
+  $('#connShort').textContent = t('sh_' + k);
+  $('#connText2').textContent = t('st_' + k);
+  const pill = $('#connPill');
+  pill.classList.toggle('demo', state.source === 'demo');
+  pill.title = t('st_' + k) + (state.source === 'demo' ? ' · ' + t('demo_note') : '');
+  const connected = !!state.source || state.conn === 'reconnecting' || state.conn === 'connecting';
   // the welcome card carries its own connect buttons
-  const welcome = !state.readings.length && !state.source;
-  for (const id of ['#btnBle', '#btnUsb', '#btnDemo']) $(id).hidden = connected || welcome;
-  if (!navigator.serial) $('#btnUsb').hidden = true;  // phones: no Web Serial
+  const welcome = state.tab === 'live' && !state.readings.length && !state.source;
+  $('#btnConnect').hidden = connected || welcome;
+  $('#btnUsb').hidden = connected || welcome || !navigator.serial;
   $('#btnDisconnect').hidden = !connected;
+  pill.classList.toggle('hide-mob', !$('#btnConnect').hidden);
+  for (const b of document.querySelectorAll('[data-when="off"]')) b.hidden = connected || (b.dataset.act === 'usb' && !navigator.serial);
+  for (const b of document.querySelectorAll('[data-when="on"]')) b.hidden = !connected;
   $('#btnIdentify').disabled = !(state.source === 'ble' || state.source === 'usb');
+}
+
+function renderLiveMini() {
+  const r = state.readings[state.readings.length - 1];
+  const el = $('#liveMini');
+  const show = !!r && r.vel != null && !(state.tab === 'live' && state.heroVisible);
+  el.hidden = !show;
+  if (!show) return;
+  const z = zoneOf(r.vel);
+  setStatusVars(el, STATUS[z].st);
+  el.querySelector('.ic').textContent = STATUS[z].icon;
+  el.querySelector('.z').textContent = STATUS[z].key;
+  el.querySelector('.v').textContent = fmt(r.vel, 2);
+  el.querySelector('.u').textContent = t('u_mms');
+  el.title = zoneName(z);
+}
+
+function renderTabs() {
+  for (const a of document.querySelectorAll('#tabs a')) {
+    if (a.dataset.nav === state.tab) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
+  }
+  const n = attentionCount();
+  const b = $('#machBadge');
+  b.hidden = !n;
+  b.textContent = n;
 }
 
 function render() {
   renderConn();
-  renderFirstReading();
-  const has = state.readings.length > 0;
-  $('#emptyState').hidden = has || !!state.source;
-  $('#dash').hidden = !(has || state.source);
-  if ($('#dash').hidden) return;
-  const r = state.readings[state.readings.length - 1] || {};
-  renderHero(r);
-  renderFreq(r);
-  renderTiles(r);
-  renderRange();
-  renderSpectrum(r);
-  renderTrend();
-  renderEvents();
-  renderInfo(r);
+  renderTabs();
+  renderLiveMini();
+  if (state.tab === 'live') renderLive();
+  else if (state.tab === 'analysis') renderAnalysis();
+  else if (state.tab === 'machines') renderMachines();
+  else renderDevice();
 }
+
+// ---------------------------------------------------------------- live ---
+function renderLive() {
+  const has = state.readings.length > 0;
+  $('#welcome').hidden = has || !!state.source;
+  $('#liveDash').hidden = !(has || state.source);
+  if ($('#liveDash').hidden) return;
+  const r = state.readings[state.readings.length - 1] || {};
+  renderFirstReading();
+  renderHero(r);
+  renderMachineSel();
+  renderInspect();
+  renderTiles(r);
+}
+
 function renderFirstReading() {
   if (state.firstReadingPending && Date.now() - state.firstReadingStarted > 10000) state.firstReadingPending = false;
   const saved = state.firstReading;
-  const live = (state.source === 'ble' || state.source === 'usb') && state.conn === 'live' && Date.now() - state.lastRx <= 5000;
+  const real = state.source === 'ble' || state.source === 'usb';
+  const live = real && state.conn === 'live' && Date.now() - state.lastRx <= 5000;
+  // only worth a card while a real device is connected and nothing is saved yet
+  const justDone = saved && Date.now() - saved.time < 8000;
+  $('#firstReadingCard').hidden = !(real && (!saved || justDone));
   const button = $('#btnFirstReading');
   button.hidden = !!saved;
   button.disabled = !live || state.firstReadingPending;
@@ -1068,20 +2008,15 @@ function renderFirstReading() {
 
 function renderHero(r) {
   const z = zoneOf(r.vel);
-  const chip = $('#zoneChip');
-  chip.textContent = '';
-  if (z) {
-    const s = STATUS[z];
-    const c = h('span', { class: 'status-chip' }, h('span', { class: 'ic', 'aria-hidden': 'true' }, s.icon), zoneName(z));
-    setStatusVars(c, s.st);
-    chip.append(c);
-    $('#zoneDesc').textContent = t('zone' + s.key + '_d');
-  } else {
-    chip.append(h('span', { class: 'status-chip' }, h('span', { class: 'ic' }, '…'), t('no_data')));
-    $('#zoneDesc').textContent = '';
-  }
+  const box = $('#zoneChip');
+  box.textContent = '';
+  box.append(zoneChip(z));
+  $('#zoneDesc').textContent = z ? t('zone' + STATUS[z].key + '_d') : '';
   $('#velValue').textContent = fmt(r.vel, 2);
   $('#velUnit').textContent = t('u_mms');
+  const mc = machineById(state.machineId);
+  $('#condMachine').textContent = mc ? mc.name : '';
+  $('#condMachine').hidden = !mc;
   const run = $('#runState');
   run.textContent = '';
   if (r.vel != null) {
@@ -1116,52 +2051,99 @@ function renderHero(r) {
   sel.value = String(state.isoClass);
 }
 
-function renderFreq(r) {
-  const body = $('#freqBody');
-  body.textContent = '';
-  const clear = r.vel != null && r.fv != null && r.f != null && r.fv >= DOMINANT_MIN && r.vel >= RUNNING_MM_S / 2;
-  if (clear) {
-    body.append(h('div', null, numEl(fmt(r.f, 1), 'big'), h('span', { class: 'unit' }, t('u_hz'))));
-    body.append(h('div', { class: 'sub' }, t('rpm_equiv', { rpm: fmtInt(r.f * 60) })));
-  } else {
-    body.append(h('div', { class: 'big', style: 'font-size:26px' }, r.vel == null ? '—' : t('no_dom')));
-    if (r.vel != null) body.append(h('div', { class: 'sub' }, t('no_dom_sub')));
+let selSig = '';
+function renderMachineSel() {
+  const sel = $('#machineSel');
+  sel.disabled = !!(state.capture || state.result);
+  const sig = db.rev + '|' + state.lang + '|' + state.machineId;
+  if (sig === selSig) return;
+  selSig = sig;
+  sel.textContent = '';
+  sel.append(h('option', { value: '' }, t('pick_machine')));
+  for (const mc of db.machines.slice().sort(byName)) sel.append(h('option', { value: mc.id }, mc.name + (mc.location ? ' · ' + mc.location : '')));
+  sel.append(h('option', { value: '__new' }, t('new_machine_opt')));
+  sel.value = machineById(state.machineId) ? state.machineId : '';
+}
+
+let inspectSig = '';
+function renderInspect() {
+  const box = $('#inspectBody');
+  const mc = machineById(state.machineId);
+  const mode = state.capture ? 'cap' : state.result ? 'res' : 'idle';
+  const sig = [mode, state.machineId, state.lang, db.rev, mode === 'idle' ? canMeasure() : '', mode === 'idle' ? Math.floor(Date.now() / 60000) : '', state.settings.dur].join('|');
+  if (sig !== inspectSig) {
+    inspectSig = sig;
+    box.textContent = '';
+    if (mode === 'idle') buildInspectIdle(box, mc);
+    else if (mode === 'cap') buildInspectCapture(box);
+    else buildInspectResult(box);
   }
-  const dl = h('dl');
-  const row = (k, v) => dl.append(h('dt', null, k), h('dd', null, v));
-  if (clear) row(t('peak_amp'), numEl(fmt(r.fv, 2) + ' ' + t('u_mms')));
-  if (r.axis != null) row(t('axis'), numEl('XYZ'[r.axis] || '—'));
-  row(t('sample_rate'), numEl(state.fs ? fmt(state.fs, 0) + ' ' + t('u_hz') : '—'));
-  body.append(dl);
+  if (mode === 'cap') updateCaptureProgress();
+}
+function buildInspectIdle(box, mc) {
+  const s = mc ? summaryOf(mc.id) : null;
+  const last = h('p', { class: 'last' });
+  if (!mc) last.append(t('need_machine'));
+  else if (s.last) {
+    last.append(t('last_meas', { vel: velText(s.last.vel), ago: agoText(s.last.time) }), ' ');
+    last.append(zoneChip(s.z, true, true));
+    if (s.ch) last.append(' ', changeChip(s.ch, true));
+  } else last.append(t('no_meas_yet'));
+  box.append(last);
+  const live = canMeasure();
+  box.append(h('button', { class: 'btn primary rec', disabled: live ? null : '', onclick: startCapture },
+    h('span', { class: 'rd', 'aria-hidden': 'true' }), t('record'), h('span', { class: 'dur num' }, '· ' + t('sec', { n: state.settings.dur }))));
+  if (!live) box.append(h('p', { class: 'note', style: 'margin:10px 0 0' }, t('need_live')));
+}
+function buildInspectCapture(box) {
+  box.append(h('div', { class: 'cap-head' }, h('b', null, t('measuring')), h('span', { class: 'note', id: 'capLeft' })));
+  box.append(h('div', { class: 'progress', role: 'progressbar', 'aria-valuemin': 0, 'aria-valuemax': 100, id: 'capBar' }, h('div', { style: 'width:0%' })));
+  box.append(h('div', { class: 'note' }, t('cap_avg')));
+  box.append(h('div', { class: 'cap-fig' }, numEl('—', 'big'), h('span', { class: 'unit-s' }, t('u_mms'))));
+  box.append(h('p', { class: 'note', style: 'margin:10px 0 0' }, t('cap_hold')));
+  box.append(h('button', { class: 'btn', style: 'margin-top:12px', onclick: () => cancelCapture() }, t('cancel')));
+}
+function updateCaptureProgress() {
+  const c = state.capture;
+  if (!c) return;
+  const p = Math.min(1, (Date.now() - c.start) / c.dur);
+  const bar = $('#capBar');
+  if (!bar) return;
+  bar.firstChild.style.width = (p * 100).toFixed(1) + '%';
+  bar.setAttribute('aria-valuenow', Math.round(p * 100));
+  $('#capLeft').textContent = t('left_s', { n: Math.max(0, Math.ceil((c.dur - (Date.now() - c.start)) / 1000)) });
+  const v = c.rs.map((x) => x.vel);
+  const fig = $('#inspectBody .cap-fig .big');
+  if (fig) fig.textContent = v.length ? fmt(Math.sqrt(v.reduce((a, x) => a + x * x, 0) / v.length), 2) : '—';
+}
+function buildInspectResult(box) {
+  const m = state.result;
+  const mc = machineById(m.machineId);
+  if (!mc) { state.result = null; return; }
+  const s = summaryOf(mc.id);
+  const z = zoneOf(m.vel, mc.cls);
+  box.append(h('div', { class: 'cap-head' }, h('b', null, t('res_title')), m.demo ? h('span', { class: 'tag demo' }, t('tag_demo')) : null));
+  box.append(h('div', { class: 'res-fig' }, numEl(fmt(m.vel, 2), 'big'), h('span', { class: 'unit-s' }, t('u_mms'))));
+  const chips = h('div', { class: 'chips' }, zoneChip(z, true, true));
+  const ch = s.base ? changeInfo(m.vel, s.base.vel) : null;
+  if (ch) chips.append(changeChip(ch, true));
+  box.append(chips);
+  if (!s.base) box.append(h('p', { class: 'warnline' }, t('res_first')));
+  const warnIc = () => setStatusVars(h('span', { class: 'ic', 'aria-hidden': 'true' }, '!'), 'warning');
+  if (m.vel < RUNNING_MM_S) box.append(h('p', { class: 'warnline' }, warnIc(), t('warn_stopped')));
+  else if (m.cv > 0.25) box.append(h('p', { class: 'warnline' }, warnIc(), t('warn_unstable', { cv: ltr('±' + Math.round(m.cv * 100) + '%') })));
+  box.append(h('div', { class: 'subhead' }, t('hints')));
+  box.append(hintsList(measAnalysis(m, mc, s.base)));
+  box.append(h('div', { class: 'field', style: 'margin:14px 0 0' }, h('label', { for: 'resNote' }, t('note')),
+    h('textarea', { id: 'resNote', rows: 2, maxlength: 300, placeholder: t('note_ph') })));
+  box.append(h('div', { class: 'actions', style: 'margin-top:12px' },
+    h('button', { class: 'btn primary', onclick: saveResult }, t('save')),
+    h('button', { class: 'btn', onclick: () => { state.result = null; inspectSig = ''; scheduleRender(); } }, t('discard'))));
 }
 
 function rangeData() {
   const t0 = Date.now() - state.rangeMin * 60000;
   return state.readings.filter((x) => x.time >= t0);
-}
-
-function sparkline(values) {
-  const pts = values.filter((v) => v != null);
-  if (pts.length < 2) return null;
-  const W = 200, H = 30, pad = 4;
-  let lo = Math.min(...pts), hi = Math.max(...pts);
-  if (hi - lo < 1e-9) { lo -= 1; hi += 1; }
-  const n = values.length;
-  let d = '', last = null;
-  values.forEach((v, i) => {
-    if (v == null) return;
-    const x = (i / (n - 1)) * W, y = pad + (1 - (v - lo) / (hi - lo)) * (H - 2 * pad);
-    d += (d ? 'L' : 'M') + x.toFixed(1) + ',' + y.toFixed(1);
-    last = [x, y];
-  });
-  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-  svg.setAttribute('class', 'spark');
-  svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
-  svg.setAttribute('preserveAspectRatio', 'none');
-  svg.setAttribute('aria-hidden', 'true');
-  svg.innerHTML = '<path d="' + d + '" fill="none" stroke="var(--axis)" stroke-width="2" vector-effect="non-scaling-stroke" stroke-linejoin="round" stroke-linecap="round"/>' +
-    '<circle cx="' + last[0] + '" cy="' + last[1] + '" r="3.5" fill="var(--series)" stroke="var(--surface)" stroke-width="2" vector-effect="non-scaling-stroke"/>';
-  return svg;
 }
 
 function tile(label, value, unit, sub, spark, extra) {
@@ -1178,26 +2160,45 @@ function renderTiles(r) {
   const data = rangeData().slice(-90);
   const col = (k) => data.map((x) => (x[k] == null ? null : x[k]));
   const s = r.sens || {};
-  const box = $('#tiles');
-  box.textContent = '';
-  box.append(tile(t('acc'), r.arms == null ? null : fmt(r.arms, 1), t('u_mg'),
+  const on = [], off = [];
+  const clear = r.vel != null && r.fv != null && r.f != null && r.fv >= DOMINANT_MIN && r.vel >= RUNNING_MM_S / 2;
+  on.push(clear
+    ? tile(t('dom_freq'), fmt(r.f, 1), t('u_hz'), t('rpm_equiv', { rpm: fmtInt(r.f * 60) }), sparkline(col('f')))
+    : tile(t('dom_freq'), null, '', r.vel == null ? '' : t('no_dom_sub'), null, { offText: r.vel == null ? '—' : t('no_dom') }));
+  on.push(tile(t('acc'), r.arms == null ? null : fmt(r.arms, 1), t('u_mg'),
     r.apk == null ? '' : t('acc_sub', { apk: fmt(r.apk, 0) + ' ' + t('u_mg'), crest: fmt(r.crest, 1) }), sparkline(col('arms'))));
-  if (s.mlx && r.ir != null) {
-    box.append(tile(t('ir'), fmt(r.ir, 1), t('u_c'), t('ir_sub', { amb: fmt(r.ira, 1) + ' ' + t('u_c') }), sparkline(col('ir'))));
-  } else {
-    box.append(tile(t('ir'), null, '', t('ir_hint'), null, { offText: t('ir_missing') }));
-  }
-  box.append(tile(t('int_temp'), r.t == null ? null : fmt(r.t, 1), t('u_c'), r.rh == null ? '' : t('int_sub', { rh: fmt(r.rh, 0) + '%' }), sparkline(col('t'))));
-  box.append(tile(t('pressure'), r.p == null ? null : fmt(r.p, 1), t('u_hpa'), t('pressure_sub'), sparkline(col('p'))));
+  if (s.mlx && r.ir != null) on.push(tile(t('ir'), fmt(r.ir, 1), t('u_c'), t('ir_sub', { amb: fmt(r.ira, 1) + ' ' + t('u_c') }), sparkline(col('ir'))));
+  else off.push(tile(t('ir'), null, '', t('ir_hint'), null, { offText: t('ir_missing') }));
   // dB(A): meter spans 30-100; 85 dB(A) is the occupational hearing-protection limit
   const meter = r.snd == null ? null : Math.max(0, Math.min(100, ((r.snd - 30) / 70) * 100));
   const sndLevel = r.snd == null ? '' : t(r.snd < 45 ? 'snd_quiet' : r.snd < 65 ? 'snd_normal' : r.snd < 85 ? 'snd_loud' : 'snd_danger');
-  box.append(tile(t('sound'), r.snd == null ? null : fmt(r.snd, 0), t('u_db'), r.snd == null ? '' : t('sound_sub', { level: sndLevel }), sparkline(col('snd')), { meter }));
-  if (s.pz && r.pzp != null) {
-    box.append(tile(t('piezo'), fmt(r.pzp, 0), t('u_mv'), t('piezo_sub', { n: fmtInt(r.pzi), rms: fmt(r.pzr, 0) }), sparkline(col('pzp'))));
-  } else {
-    box.append(tile(t('piezo'), null, '', t('piezo_hint'), null, { offText: t('piezo_off') }));
-  }
+  on.push(tile(t('sound'), r.snd == null ? null : fmt(r.snd, 0), t('u_db'), r.snd == null ? '' : t('sound_sub', { level: sndLevel }), sparkline(col('snd')), { meter }));
+  on.push(tile(t('int_temp'), r.t == null ? null : fmt(r.t, 1), t('u_c'), r.rh == null ? '' : t('int_sub', { rh: fmt(r.rh, 0) + '%' }), sparkline(col('t'))));
+  on.push(tile(t('pressure'), r.p == null ? null : fmt(r.p, 1), t('u_hpa'), t('pressure_sub'), sparkline(col('p'))));
+  if (s.pz && r.pzp != null) on.push(tile(t('piezo'), fmt(r.pzp, 0), t('u_mv'), t('piezo_sub', { n: fmtInt(r.pzi), rms: fmt(r.pzr, 0) }), sparkline(col('pzp'))));
+  else off.push(tile(t('piezo'), null, '', t('piezo_hint'), null, { offText: t('piezo_off') }));
+  const box = $('#tiles');
+  box.textContent = '';
+  box.append(...on, ...off);   // sensors that aren't fitted go last
+}
+
+// ------------------------------------------------------------ analysis ---
+function renderAnalysis() {
+  const has = state.readings.length > 0;
+  $('#anaEmpty').hidden = has;
+  $('#anaDash').hidden = !has;
+  if (!has) return;
+  const r = state.readings[state.readings.length - 1] || {};
+  renderRange();
+  const res = liveAnalysis(r);
+  renderSpectrum(res);
+  renderTrend();
+  const inp = $('#rpmInput');
+  if (document.activeElement !== inp) inp.value = effRpm() || '';
+  $('#btnUseDom').disabled = !(r.f && r.fv >= DOMINANT_MIN);
+  $('#rpmNote').textContent = res.needRpm ? t('rpm_need') : res.lowRpm ? t('rpm_low') : '';
+  $('#rpmNote').hidden = !(res.needRpm || res.lowRpm);
+  hintsList(res, $('#liveHints'));
 }
 
 function renderRange() {
@@ -1213,8 +2214,64 @@ function renderRange() {
   }
 }
 
-// ---------------------------------------------------- spectrum chart ---
-function renderSpectrum(r) {
+// Spectrum chart as an SVG string, shared by the live view and the reports
+function specSvg(bands, fs, W, H, opt) {
+  opt = opt || {};
+  const df = (fs || 928) / NFFT;
+  const bandLo = (b) => (K0 + BW * b) * df, bandHi = (b) => (K0 + BW * (b + 1)) * df;
+  const m = { l: 46, r: 12, t: 26, b: 30 };
+  const pw = W - m.l - m.r, ph = H - m.t - m.b;
+  const fMax = Math.ceil(bandHi(BANDS - 1) / 50) * 50;
+  const vmax = Math.max(...bands);
+  const ymax = niceCeil(Math.max(vmax * 1.18, 0.2));
+  const X = (f) => m.l + (f / fMax) * pw;
+  const Y = (v) => m.t + ph - (v / ymax) * ph;
+  let s = '';
+  for (let i = 0; i <= 4; i++) {
+    const v = (ymax / 4) * i, y = Y(v);
+    s += '<line x1="' + m.l + '" x2="' + (W - m.r) + '" y1="' + y + '" y2="' + y + '" stroke="' + (i ? 'var(--grid)' : 'var(--axis)') + '" stroke-width="1"/>';
+    s += '<text x="' + (m.l - 8) + '" y="' + (y + 4) + '" text-anchor="end">' + +v.toFixed(3) + '</text>';
+  }
+  // smallest tick step that still leaves room for each label
+  const step = [25, 50, 100, 200].find((st) => (st / fMax) * pw >= 36) || 200;
+  for (let f = 0; f <= fMax + 0.01; f += step) s += '<text x="' + X(f) + '" y="' + (H - 8) + '" text-anchor="middle">' + f + '</text>';
+  // axis units sit outside the plot, clear of every tick
+  s += '<text x="' + (m.l - 8) + '" y="' + (H - 8) + '" text-anchor="end">' + t('u_hz') + '</text>';
+  s += '<text x="' + (m.l - 8) + '" y="' + (m.t - 10) + '" text-anchor="end">' + t('u_mms') + '</text>';
+
+  const slot = X(bandHi(0)) - X(bandLo(0));
+  const bw = Math.max(1, Math.min(24, slot - 2));
+  let best = 0;
+  bands.forEach((v, b) => {
+    if (v > bands[best]) best = b;
+    const x = X(bandLo(b)) + (slot - bw) / 2, y = Y(v), y0 = Y(0);
+    const hgt = y0 - y;
+    if (hgt >= 0.5) {
+      const rr = Math.min(4, bw / 2, hgt);
+      s += '<path d="M' + x + ',' + y0 + 'V' + (y + rr) + 'Q' + x + ',' + y + ' ' + (x + rr) + ',' + y + 'H' + (x + bw - rr) + 'Q' + (x + bw) + ',' + y + ' ' + (x + bw) + ',' + (y + rr) + 'V' + y0 + 'Z" fill="var(--series)"' + (opt.hover === b ? ' opacity="0.65"' : '') + '/>';
+    }
+  });
+  // running-speed harmonics and 2x line frequency as reference lines
+  let lastLabel = -99;
+  for (const mk of opt.markers || []) {
+    if (mk.f > fMax) continue;
+    const x = X(mk.f);
+    s += '<line x1="' + x + '" x2="' + x + '" y1="' + (m.t - 2) + '" y2="' + (m.t + ph) + '" stroke="var(--ink-2)" stroke-width="1" stroke-dasharray="3 3" opacity="0.6"/>';
+    if (x - lastLabel >= 20) { s += '<text class="mk" x="' + x + '" y="' + (m.t - 7) + '" text-anchor="middle">' + mk.label + '</text>'; lastLabel = x; }
+  }
+  // selective label: only the dominant peak
+  if (vmax >= DOMINANT_MIN) {
+    const fLabel = opt.f && opt.f >= bandLo(best) - df && opt.f <= bandHi(best) + df ? opt.f : (bandLo(best) + bandHi(best)) / 2;
+    const x = Math.min(W - m.r - 30, Math.max(m.l + 30, X(bandLo(best)) + slot / 2));
+    s += svgLabel(x, Y(bands[best]) - 7, 'middle', fLabel.toFixed(1) + ' ' + t('u_hz'));
+  }
+  return {
+    svg: '<svg viewBox="0 0 ' + W + ' ' + H + '" height="' + H + '" role="img" aria-label="' + t('spectrum') + '">' + s + '</svg>',
+    geo: { W, m, pw, ph, fMax, df, bands, bandLo, bandHi },
+  };
+}
+
+function renderSpectrum(res) {
   const sp = state.spectrum;
   const axisName = sp && sp.axis != null ? 'XYZ'[sp.axis] : '—';
   $('#specSub').textContent = t('spectrum_sub', { axis: axisName });
@@ -1228,86 +2285,125 @@ function renderSpectrum(r) {
     box._geo = null;
     return;
   }
-  const fs = sp.fs || 928, df = fs / NFFT;
-  const bandLo = (b) => (K0 + BW * b) * df, bandHi = (b) => (K0 + BW * (b + 1)) * df;
-
   if (asTable) {
+    const df = (sp.fs || 928) / NFFT;
     const tb = h('table', null, h('thead', null, h('tr', null, h('th', null, t('col_band') + ' (' + t('u_hz') + ')'), h('th', null, t('col_val') + ' (' + t('u_mms') + ')'))));
     const body = h('tbody');
-    sp.bands.forEach((v, b) => body.append(h('tr', null, h('td', null, numEl(fmt(bandLo(b), 0) + '–' + fmt(bandHi(b), 0))), h('td', null, numEl(fmt(v, 3))))));
+    sp.bands.forEach((v, b) => body.append(h('tr', null, h('td', null, numEl(fmt((K0 + BW * b) * df, 0) + '–' + fmt((K0 + BW * (b + 1)) * df, 0))), h('td', null, numEl(fmt(v, 3))))));
     tb.append(body);
     tableBox.textContent = '';
     tableBox.append(tb);
     return;
   }
+  const out = specSvg(sp.bands, sp.fs, Math.max(300, box.clientWidth), 236, { f: sp.f, markers: res.markers, hover: state.hover.spec });
+  box.innerHTML = out.svg;
+  box._geo = out.geo;
+}
 
-  const W = Math.max(300, box.clientWidth), H = 236;
-  const m = { l: 46, r: 10, t: 24, b: 30 };
+// Velocity-over-time chart: live trend (area + gaps) or machine history (dots)
+function lineSvg(pts, o) {
+  const { W, H } = o;
+  const m = { l: 46, r: 14, t: 16, b: 30 };
   const pw = W - m.l - m.r, ph = H - m.t - m.b;
-  const fMax = niceCeil(bandHi(BANDS - 1));
-  const vmax = Math.max(...sp.bands);
-  const ymax = niceCeil(Math.max(vmax * 1.18, 0.2));
-  const X = (f) => m.l + (f / fMax) * pw;
-  const Y = (v) => m.t + ph - (v / ymax) * ph;
+  const lim = ISO[o.cls];
+  const vmax = Math.max(...pts.map((p) => p.vel), o.base || 0);
+  const ymax = niceCeil(Math.max(vmax * 1.15, lim[1] * 1.12));
+  const X = (ms) => m.l + ((ms - o.t0) / (o.t1 - o.t0)) * pw;
+  const Y = (v) => m.t + ph - (Math.min(v, ymax) / ymax) * ph;
   let s = '';
+  // zone background washes (status colours, very light)
+  const edges = [0, lim[0], lim[1], lim[2], Infinity];
+  for (let i = 0; i < 4; i++) {
+    const lo = edges[i], hi = Math.min(edges[i + 1], ymax);
+    if (lo >= ymax) break;
+    s += '<rect x="' + m.l + '" y="' + Y(hi) + '" width="' + pw + '" height="' + (Y(lo) - Y(hi)) + '" fill="var(--' + STATUS[i + 1].st + ')" opacity="0.07"/>';
+  }
   for (let i = 0; i <= 4; i++) {
     const v = (ymax / 4) * i, y = Y(v);
     s += '<line x1="' + m.l + '" x2="' + (W - m.r) + '" y1="' + y + '" y2="' + y + '" stroke="' + (i ? 'var(--grid)' : 'var(--axis)') + '" stroke-width="1"/>';
-    s += '<text x="' + (m.l - 8) + '" y="' + (y + 4) + '" text-anchor="end">' + +v.toFixed(3) + '</text>';
+    s += '<text x="' + (m.l - 8) + '" y="' + (y + 4) + '" text-anchor="end">' + +v.toFixed(2) + '</text>';
   }
-  const step = fMax > 300 ? 50 : 25;
-  for (let f = 0; f < fMax - 0.01; f += step) s += '<text x="' + X(f) + '" y="' + (H - 8) + '" text-anchor="middle">' + f + '</text>';
-  // the last tick carries the unit, so the two never collide
-  s += '<text x="' + (W - m.r) + '" y="' + (H - 8) + '" text-anchor="end" direction="ltr">' + fMax + ' ' + (state.lang === 'ar' ? 'Hz' : t('u_hz')) + '</text>';
-  s += '<text x="' + (m.l - 8) + '" y="' + (m.t - 10) + '" text-anchor="end">' + t('u_mms') + '</text>';
-
-  const slot = X(bandHi(0)) - X(bandLo(0));
-  const bw = Math.max(1, Math.min(24, slot - 2));
-  let best = 0;
-  sp.bands.forEach((v, b) => {
-    if (v > sp.bands[best]) best = b;
-    const x = X(bandLo(b)) + (slot - bw) / 2, y = Y(v), y0 = Y(0);
-    const hgt = y0 - y;
-    if (hgt >= 0.5) {
-      const rr = Math.min(4, bw / 2, hgt);
-      s += '<path class="bar" data-b="' + b + '" d="M' + x + ',' + y0 + 'V' + (y + rr) + 'Q' + x + ',' + y + ' ' + (x + rr) + ',' + y + 'H' + (x + bw - rr) + 'Q' + (x + bw) + ',' + y + ' ' + (x + bw) + ',' + (y + rr) + 'V' + y0 + 'Z" fill="var(--series)"' + (state.hover.spec === b ? ' opacity="0.65"' : '') + '/>';
+  let labels = '';
+  for (let i = 0; i < 3; i++) {
+    if (lim[i] >= ymax) continue;
+    const y = Y(lim[i]);
+    s += '<line x1="' + m.l + '" x2="' + (W - m.r) + '" y1="' + y + '" y2="' + y + '" stroke="var(--' + STATUS[i + 2].st + ')" stroke-width="1" opacity="0.8"/>';
+    labels += '<text x="' + (m.l + 6) + '" y="' + (y - 5) + '" class="lbl">' + STATUS[i + 1].key + '|' + STATUS[i + 2].key + ' ' + lim[i] + '</text>';
+  }
+  for (const tk of o.dateTicks ? dateTicks(o.t0, o.t1) : timeTicks(o.t0, o.t1)) {
+    const x = X(tk.ms);
+    if (x < m.l - 1 || x > W - m.r + 1) continue;
+    s += '<text x="' + x + '" y="' + (H - 8) + '" text-anchor="middle">' + tk.label + '</text>';
+  }
+  s += '<text x="' + (m.l - 8) + '" y="' + (m.t - 4) + '" text-anchor="end">' + t('u_mms') + '</text>';
+  let baseLabel = '';
+  if (o.base != null && o.base < ymax) {
+    const y = Y(o.base);
+    s += '<line x1="' + m.l + '" x2="' + (W - m.r) + '" y1="' + y + '" y2="' + y + '" stroke="var(--ink-2)" stroke-width="1.5" stroke-dasharray="6 4"/>';
+    // right end, clear of the zone labels; under the line when the latest point sits above it
+    const lp = pts[pts.length - 1];
+    const below = lp && Y(lp.vel) < y;
+    baseLabel = svgLabel(W - m.r - 4, below ? y + 15 : y - 6, 'end', t('base') + ' ' + fmt(o.base, 2));
+  }
+  // line, broken across gaps (disconnects)
+  let line = '', area = '', seg = [];
+  const flush = () => {
+    if (seg.length > 1) {
+      line += 'M' + seg.map((p) => p.join(',')).join('L');
+      area += 'M' + seg[0][0] + ',' + Y(0) + 'L' + seg.map((p) => p.join(',')).join('L') + 'L' + seg[seg.length - 1][0] + ',' + Y(0) + 'Z';
     }
+    seg = [];
+  };
+  pts.forEach((p, i) => {
+    if (o.gap && i && p.time - pts[i - 1].time > o.gap) flush();
+    seg.push([X(p.time).toFixed(1), Y(p.vel).toFixed(1)]);
   });
-  // selective label: only the dominant peak
-  if (vmax >= DOMINANT_MIN) {
-    const fLabel = sp.f && sp.f >= bandLo(best) - df && sp.f <= bandHi(best) + df ? sp.f : (bandLo(best) + bandHi(best)) / 2;
-    const x = Math.min(W - m.r - 30, Math.max(m.l + 30, X(bandLo(best)) + slot / 2));
-    s += '<text class="lbl" x="' + x + '" y="' + (Y(sp.bands[best]) - 7) + '" text-anchor="middle">' + fLabel.toFixed(1) + ' ' + t('u_hz') + '</text>';
+  flush();
+  if (o.area) s += '<path d="' + area + '" fill="var(--series-wash)"/>';
+  s += '<path d="' + line + '" fill="none" stroke="var(--series)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>';
+  if (o.dots) for (const p of pts) s += '<circle cx="' + X(p.time) + '" cy="' + Y(p.vel) + '" r="4.5" fill="var(--series)" stroke="var(--surface)" stroke-width="2"/>';
+  else if (pts.length) {
+    const lp = pts[pts.length - 1];
+    s += '<circle cx="' + X(lp.time) + '" cy="' + Y(lp.vel) + '" r="4" fill="var(--series)" stroke="var(--surface)" stroke-width="2"/>';
   }
-  box.innerHTML = '<svg viewBox="0 0 ' + W + ' ' + H + '" height="' + H + '" role="img" aria-label="' + t('spectrum') + '">' + s + '</svg>';
-  box._geo = { W, m, pw, ph, fMax, df, bands: sp.bands, bandLo, bandHi };
+  s += labels + baseLabel;
+  const hv = o.hover != null && pts.length ? nearest(pts, o.hover) : null;
+  if (hv) {
+    s += '<line x1="' + X(hv.time) + '" x2="' + X(hv.time) + '" y1="' + m.t + '" y2="' + (m.t + ph) + '" stroke="var(--muted)" stroke-width="1"/>';
+    s += '<circle cx="' + X(hv.time) + '" cy="' + Y(hv.vel) + '" r="5.5" fill="var(--series)" stroke="var(--surface)" stroke-width="2"/>';
+  }
+  return {
+    svg: '<svg viewBox="0 0 ' + W + ' ' + H + '" height="' + H + '" role="img" aria-label="' + (o.label || t('trend')) + '">' + s + '</svg>',
+    geo: { W, m, pw, ph, t0: o.t0, t1: o.t1, data: pts },
+  };
+}
+// chart text with Arabic in it is laid out right-to-left so "1.30 خط الأساس" reads in order;
+// the anchor flips with it so the label keeps its place
+function svgLabel(x, y, anchor, text) {
+  const rtl = /[؀-ۿ]/.test(text);
+  const a = rtl && anchor !== 'middle' ? (anchor === 'end' ? 'start' : 'end') : anchor;
+  return '<text class="lbl" x="' + x + '" y="' + y + '" text-anchor="' + a + '"' + (rtl ? ' direction="rtl"' : '') + '>' + text + '</text>';
+}
+function nearest(data, ms) { return data.reduce((a, b) => (Math.abs(b.time - ms) < Math.abs(a.time - ms) ? b : a)); }
+function timeTicks(t0, t1) {
+  const span = (t1 - t0) / 1000;
+  const stepS = [10, 15, 30, 60, 120, 300, 600, 900, 1800].find((st) => span / st <= 6) || 1800;
+  const out = [];
+  for (let ms = Math.ceil(t0 / 1000 / stepS) * stepS * 1000; ms <= t1; ms += stepS * 1000) out.push({ ms, label: stepS >= 60 ? clock(ms).slice(0, 5) : clock(ms) });
+  return out;
+}
+function dateTicks(t0, t1) {
+  const HR = 3600e3, D = 24 * HR;
+  const step = [HR, 3 * HR, 6 * HR, 12 * HR, D, 2 * D, 7 * D, 14 * D, 30 * D, 91 * D].find((st) => (t1 - t0) / st <= 5) || 182 * D;
+  const d0 = new Date(t0);
+  d0.setHours(0, 0, 0, 0);
+  let ms = d0.getTime();
+  while (ms < t0) ms += step;
+  const out = [];
+  for (; ms <= t1; ms += step) out.push({ ms, label: step >= D ? dayLabel(ms) : clock(ms).slice(0, 5) });
+  return out;
 }
 
-// Hover handlers live on the chart containers, which persist across renders
-// (the SVG inside is rebuilt every second, so it can't hold the listeners)
-function svgX(ev, box, geo) {
-  const svg = box.querySelector('svg');
-  if (!svg) return null;
-  const rect = svg.getBoundingClientRect();
-  const x = (ev.clientX - rect.left) * (geo.W / rect.width);
-  const y = (ev.clientY - rect.top) * (geo.W / rect.width);
-  if (x < geo.m.l || x > geo.m.l + geo.pw || y < geo.m.t - 8 || y > geo.m.t + geo.ph + 8) return null;
-  return x;
-}
-function onSpecMove(ev) {
-  const box = $('#specChart'), g = box._geo;
-  const x = g ? svgX(ev, box, g) : null;
-  const b = x == null ? null : Math.floor((((x - g.m.l) / g.pw) * g.fMax / g.df - K0) / BW);
-  if (b == null || b < 0 || b >= BANDS) { onSpecLeave(); return; }
-  if (state.hover.spec !== b) { state.hover.spec = b; scheduleRender(); }
-  showTip(ev, fmt(g.bands[b], 3) + ' ' + t('u_mms'), fmt(g.bandLo(b), 0) + '–' + fmt(g.bandHi(b), 0) + ' ' + t('u_hz'));
-}
-function onSpecLeave() {
-  if (state.hover.spec != null) { state.hover.spec = null; scheduleRender(); }
-  hideTip();
-}
-
-// ------------------------------------------------------- trend chart ---
 function renderTrend() {
   $('#trendSub').textContent = t('trend_sub', { cls: ['I', 'II', 'III', 'IV'][state.isoClass - 1] });
   const box = $('#trendChart'), tableBox = $('#trendTable');
@@ -1333,88 +2429,300 @@ function renderTrend() {
     box._geo = null;
     return;
   }
+  const mc = machineById(state.machineId);
+  const base = mc ? summaryOf(mc.id).base : null;
+  const now = Date.now();
+  const out = lineSvg(data, { W: Math.max(300, box.clientWidth), H: 236, t0: now - state.rangeMin * 60000, t1: now, cls: state.isoClass,
+    base: base ? base.vel : null, hover: state.hover.trend, gap: 5000, area: true });
+  box.innerHTML = out.svg;
+  box._geo = out.geo;
+}
 
-  const W = Math.max(300, box.clientWidth), H = 236;
-  const m = { l: 46, r: 14, t: 16, b: 30 };
-  const pw = W - m.l - m.r, ph = H - m.t - m.b;
-  const now = Date.now(), t0 = now - state.rangeMin * 60000;
-  const lim = ISO[state.isoClass];
-  const vmax = Math.max(...data.map((x) => x.vel));
-  const ymax = niceCeil(Math.max(vmax * 1.15, lim[1] * 1.12));
-  const X = (ms) => m.l + ((ms - t0) / (now - t0)) * pw;
-  const Y = (v) => m.t + ph - (Math.min(v, ymax) / ymax) * ph;
-  let s = '';
-  // zone background washes (status colours, very light)
-  const edges = [0, lim[0], lim[1], lim[2], Infinity];
-  for (let i = 0; i < 4; i++) {
-    const lo = edges[i], hi = Math.min(edges[i + 1], ymax);
-    if (lo >= ymax) break;
-    s += '<rect x="' + m.l + '" y="' + Y(hi) + '" width="' + pw + '" height="' + (Y(lo) - Y(hi)) + '" fill="var(--' + STATUS[i + 1].st + ')" opacity="0.07"/>';
-  }
-  for (let i = 0; i <= 4; i++) {
-    const v = (ymax / 4) * i, y = Y(v);
-    s += '<line x1="' + m.l + '" x2="' + (W - m.r) + '" y1="' + y + '" y2="' + y + '" stroke="' + (i ? 'var(--grid)' : 'var(--axis)') + '" stroke-width="1"/>';
-    s += '<text x="' + (m.l - 8) + '" y="' + (y + 4) + '" text-anchor="end">' + +v.toFixed(2) + '</text>';
-  }
-  for (let i = 0; i < 3; i++) {
-    if (lim[i] >= ymax) continue;
-    const y = Y(lim[i]);
-    s += '<line x1="' + m.l + '" x2="' + (W - m.r) + '" y1="' + y + '" y2="' + y + '" stroke="var(--' + STATUS[i + 2].st + ')" stroke-width="1" opacity="0.8"/>';
-    s += '<text x="' + (m.l + 6) + '" y="' + (y - 5) + '" class="lbl">' + STATUS[i + 1].key + '|' + STATUS[i + 2].key + ' ' + lim[i] + '</text>';
-  }
-  // time ticks
-  const span = (now - t0) / 1000;
-  const stepS = [10, 15, 30, 60, 120, 300, 600, 900, 1800].find((st) => span / st <= 6) || 1800;
-  const first = Math.ceil(t0 / 1000 / stepS) * stepS * 1000;
-  for (let ms = first; ms <= now; ms += stepS * 1000) {
-    const label = stepS >= 60 ? clock(ms).slice(0, 5) : clock(ms);
-    s += '<text x="' + X(ms) + '" y="' + (H - 8) + '" text-anchor="middle">' + label + '</text>';
-  }
-  s += '<text x="' + (m.l - 8) + '" y="' + (m.t - 4) + '" text-anchor="end">' + t('u_mms') + '</text>';
-  // line + wash, broken across gaps (disconnects)
-  let line = '', area = '', seg = [];
-  const flush = () => {
-    if (seg.length > 1) {
-      line += 'M' + seg.map((p) => p.join(',')).join('L');
-      area += 'M' + seg[0][0] + ',' + Y(0) + 'L' + seg.map((p) => p.join(',')).join('L') + 'L' + seg[seg.length - 1][0] + ',' + Y(0) + 'Z';
-    }
-    seg = [];
+// Hover handlers live on the chart containers, which persist across renders
+// (the SVG inside is rebuilt every second, so it can't hold the listeners)
+function svgX(ev, box, geo) {
+  const svg = box.querySelector('svg');
+  if (!svg) return null;
+  const rect = svg.getBoundingClientRect();
+  const x = (ev.clientX - rect.left) * (geo.W / rect.width);
+  const y = (ev.clientY - rect.top) * (geo.W / rect.width);
+  if (x < geo.m.l - 6 || x > geo.m.l + geo.pw + 6 || y < geo.m.t - 10 || y > geo.m.t + geo.ph + 10) return null;
+  return Math.max(geo.m.l, Math.min(geo.m.l + geo.pw, x));
+}
+function bindSpecHover(box) {
+  const move = (ev) => {
+    const g = box._geo;
+    const x = g ? svgX(ev, box, g) : null;
+    const b = x == null ? null : Math.floor((((x - g.m.l) / g.pw) * g.fMax / g.df - K0) / BW);
+    if (b == null || b < 0 || b >= BANDS) { clearHover(); return; }
+    if (state.hover.spec !== b) { state.hover.spec = b; scheduleRender(); }
+    showTip(ev, qty(g.bands[b], 3, 'u_mms'), ltr(fmt(g.bandLo(b), 0) + '–' + fmt(g.bandHi(b), 0)) + ' ' + t('u_hz'));
   };
-  data.forEach((x, i) => {
-    if (i && x.time - data[i - 1].time > 5000) flush();
-    seg.push([X(x.time).toFixed(1), Y(x.vel).toFixed(1)]);
-  });
-  flush();
-  s += '<path d="' + area + '" fill="var(--series-wash)"/>';
-  s += '<path d="' + line + '" fill="none" stroke="var(--series)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>';
-  const lastP = data[data.length - 1];
-  s += '<circle cx="' + X(lastP.time) + '" cy="' + Y(lastP.vel) + '" r="4" fill="var(--series)" stroke="var(--surface)" stroke-width="2"/>';
-  // hover crosshair
-  const hv = state.hover.trend != null ? data.reduce((a, b) => (Math.abs(b.time - state.hover.trend) < Math.abs(a.time - state.hover.trend) ? b : a)) : null;
-  if (hv) {
-    s += '<line x1="' + X(hv.time) + '" x2="' + X(hv.time) + '" y1="' + m.t + '" y2="' + (m.t + ph) + '" stroke="var(--muted)" stroke-width="1"/>';
-    s += '<circle cx="' + X(hv.time) + '" cy="' + Y(hv.vel) + '" r="4.5" fill="var(--series)" stroke="var(--surface)" stroke-width="2"/>';
-  }
-  box.innerHTML = '<svg viewBox="0 0 ' + W + ' ' + H + '" height="' + H + '" role="img" aria-label="' + t('trend') + '">' + s + '</svg>';
-  box._geo = { W, m, pw, ph, t0, now, data };
+  box.addEventListener('pointermove', move);
+  box.addEventListener('pointerdown', move);
+  box.addEventListener('pointerleave', (ev) => { if (ev.pointerType !== 'touch') clearHover(); });
 }
-
-function onTrendMove(ev) {
-  const box = $('#trendChart'), g = box._geo;
-  const x = g ? svgX(ev, box, g) : null;
-  if (x == null || !g.data.length) { onTrendLeave(); return; }
-  const ms = g.t0 + ((x - g.m.l) / g.pw) * (g.now - g.t0);
-  const near = g.data.reduce((a, b) => (Math.abs(b.time - ms) < Math.abs(a.time - ms) ? b : a));
-  state.hover.trend = near.time;
-  showTip(ev, fmt(near.vel, 2) + ' ' + t('u_mms'), clock(near.time) + ' · ' + zoneName(zoneOf(near.vel)));
-  scheduleRender();
+function bindLineHover(box, key, sub) {
+  const move = (ev) => {
+    const g = box._geo;
+    const x = g ? svgX(ev, box, g) : null;
+    if (x == null || !g.data.length) { clearHover(); return; }
+    const near = nearest(g.data, g.t0 + ((x - g.m.l) / g.pw) * (g.t1 - g.t0));
+    if (state.hover[key] !== near.time) { state.hover[key] = near.time; scheduleRender(); }
+    showTip(ev, qty(near.vel, 2, 'u_mms'), sub(near));
+  };
+  box.addEventListener('pointermove', move);
+  box.addEventListener('pointerdown', move);
+  box.addEventListener('pointerleave', (ev) => { if (ev.pointerType !== 'touch') clearHover(); });
 }
-function onTrendLeave() {
-  if (state.hover.trend != null) { state.hover.trend = null; scheduleRender(); }
+function clearHover() {
+  let changed = false;
+  for (const k in state.hover) if (state.hover[k] != null) { state.hover[k] = null; changed = true; }
   hideTip();
+  if (changed) scheduleRender();
 }
 
-// --------------------------------------------------- events + device ---
+// ------------------------------------------------------------ machines ---
+let machSig = '', histSig = '';
+function renderMachines() {
+  const mc = machineById(state.machineView);
+  $('#machList').hidden = !!mc;
+  $('#machDetail').hidden = !mc;
+  const sig = [mc ? 'D' + mc.id : 'L', db.rev, state.lang, state.search, Math.floor(Date.now() / 60000)].join('|');
+  if (sig !== machSig) {
+    machSig = sig;
+    histSig = '';
+    if (mc) buildMachineDetail(mc); else buildMachineList();
+  }
+  if (mc) renderHistChart(mc);
+}
+
+function buildMachineList() {
+  const sums = summaries();
+  const total = db.machines.length;
+  $('#machCount').textContent = total ? '· ' + t('machines_n', { n: total }) : '';
+  $('#machTools').hidden = total < 6;
+  if (total < 6 && state.search) { state.search = ''; $('#machSearch').value = ''; }
+  $('#routeBox').hidden = !total;
+  $('#btnRouteReport').hidden = !total;
+  $('#btnRouteShare').hidden = !total;
+  const today = startOfToday();
+  const done = db.machines.filter((m) => { const s = sums.get(m.id); return s.last && s.last.time >= today; }).length;
+  $('#routeBar').firstChild.style.width = (total ? (done / total) * 100 : 0) + '%';
+  $('#routeBar').setAttribute('aria-valuemax', total);
+  $('#routeBar').setAttribute('aria-valuenow', done);
+  $('#routeText').textContent = t('route_progress', { done, total });
+
+  const list = $('#mlist');
+  list.textContent = '';
+  if (!total) {
+    list.append(h('section', { class: 'card empty-mini', style: 'grid-column:1/-1' },
+      h('h2', null, t('no_machines_t')), h('p', null, t('no_machines_d')),
+      h('button', { class: 'btn primary', onclick: () => openMachineDialog(null, (m) => go('machines/' + m.id, true)) }, t('add_machine'))));
+    return;
+  }
+  const q = state.search.trim().toLowerCase();
+  const rows = db.machines.filter((m) => !q || (m.name + ' ' + (m.location || '')).toLowerCase().includes(q));
+  // worst condition first, so the route starts where it matters
+  rows.sort((a, b) => sums.get(b.id).rank - sums.get(a.id).rank || byName(a, b));
+  if (!rows.length) { list.append(h('p', { class: 'note' }, t('no_match'))); return; }
+  for (const mc of rows) {
+    const s = sums.get(mc.id);
+    const meta = h('div', { class: 'meta' });
+    if (s.last) {
+      meta.append(zoneChip(s.z, true, true));
+      if (s.ch) meta.append(changeChip(s.ch, true));
+      meta.append(h('span', { class: 'ago' }, agoText(s.last.time)));
+    } else meta.append(h('span', null, t('never')));
+    const val = h('div', { class: 'val' });
+    if (s.last) {
+      val.append(h('div', null, h('b', { class: 'num' }, fmt(s.last.vel, 2)), h('span', { class: 'u' }, t('u_mms'))));
+      const sp = sparkline(s.list.slice(-20).map((x) => x.vel));
+      if (sp) val.append(sp);
+    }
+    list.append(h('button', { class: 'mrow', onclick: () => go('machines/' + mc.id, true) },
+      h('div', null, h('div', { class: 'name' }, mc.name), h('div', { class: 'loc' }, [mc.location, 'ISO ' + ['I', 'II', 'III', 'IV'][mc.cls - 1], mc.rpm ? mc.rpm + ' RPM' : ''].filter(Boolean).join(' · '))),
+      val, meta));
+  }
+}
+
+function buildMachineDetail(mc) {
+  const box = $('#machDetail');
+  box.textContent = '';
+  const s = summaryOf(mc.id);
+  box.append(h('button', { class: 'btn back', onclick: backToList }, svgIcon(ICON.back), t('back')));
+
+  const head = h('section', { class: 'card' });
+  head.append(h('div', { class: 'detail-head' },
+    h('div', null, h('h2', null, mc.name),
+      h('p', null, [mc.location, t('cls' + mc.cls), mc.rpm ? ltr(mc.rpm + ' RPM') : ''].filter(Boolean).join(' · '))),
+    h('div', { class: 'actions' },
+      h('button', { class: 'btn', onclick: () => openMachineDialog(mc) }, svgIcon(ICON.edit), t('edit')))));
+  const stats = h('div', { class: 'stats' });
+  const stat = (label, value, unit, ...sub) => stats.append(h('div', { class: 'stat' }, h('div', { class: 'label' }, label),
+    h('div', { class: 'value' }, value, unit ? h('span', { class: 'u' }, unit) : null), sub.length ? h('div', { class: 'sub' }, ...sub) : null));
+  if (s.last) {
+    stat(t('latest'), numEl(fmt(s.last.vel, 2)), t('u_mms'), zoneChip(s.z, true, true), h('span', null, agoText(s.last.time)));
+    stat(t('base'), numEl(fmt(s.base.vel, 2)), t('u_mms'), dateLabel(s.base.time));
+    stat(t('vs_base'), s.ch ? changeChip(s.ch) : h('span', { class: 'muted', style: 'font-size:15px;font-weight:500' }, '—'), null);
+  }
+  stat(t('meas_count'), numEl(String(s.list.length)), null);
+  head.append(stats);
+  head.append(h('div', { class: 'card-actions' },
+    h('button', { class: 'btn primary', onclick: () => { selectMachine(mc.id); go('live'); } }, h('span', { class: 'rd', style: 'width:10px;height:10px;border-radius:50%;background:var(--critical)' }), t('record_now')),
+    s.last ? h('button', { class: 'btn', onclick: () => printReport(buildMachineReport(mc), mc.name) }, svgIcon(ICON.doc), t('report')) : null,
+    s.last ? h('button', { class: 'btn', onclick: () => shareText(machineSummaryText(mc), 'MANTIS · ' + mc.name) }, svgIcon(ICON.share), t('share')) : null));
+  box.append(head);
+
+  if (s.last) {
+    const hc = h('section', { class: 'card' },
+      h('div', { class: 'card-head' }, h('div', null, h('h2', null, t('history')), h('p', null, s.list.length > 1 ? t('history_sub') : t('history_one')))));
+    const chartBox = h('div', { class: 'chart', id: 'histChart' });
+    bindLineHover(chartBox, 'hist', (p) => {
+      const ch = s.base && p !== s.base ? changeInfo(p.vel, s.base.vel) : null;
+      return dateTime(p.time) + ' · ' + STATUS[zoneOf(p.vel, mc.cls)].key + (ch ? ' · ' + (ch.r >= 0 ? '+' : '−') + Math.abs(Math.round(ch.r * 100)) + '%' : '');
+    });
+    hc.append(chartBox);
+    box.append(hc);
+
+    const hintCard = h('section', { class: 'card' }, h('div', { class: 'card-head' }, h('div', null, h('h2', null, t('hints')), h('p', null, t('latest') + ' · ' + dateTime(s.last.time)))));
+    const res = measAnalysis(s.last, mc, s.base);
+    if (res.needRpm) hintCard.append(h('p', { class: 'note', style: 'margin:0 0 12px' }, t('rpm_need')));
+    hintCard.append(hintsList(res), h('p', { class: 'disclaimer' }, t('hints_disc')));
+    box.append(hintCard);
+
+    const logCard = h('section', { class: 'card' }, h('div', { class: 'card-head' }, h('div', null, h('h2', null, t('measurements')))));
+    const ul = h('ul', { class: 'mlog' });
+    for (const x of s.list.slice().reverse()) {
+      const isBase = s.base && x.id === s.base.id;
+      const ch = s.base && !isBase ? changeInfo(x.vel, s.base.vel) : null;
+      const metaBits = [x.f != null ? qty(x.f, 1, 'u_hz') : null, x.ir != null ? 'IR ' + qty(x.ir, 1, 'u_c') : null,
+        x.t != null ? qty(x.t, 1, 'u_c') : null, x.snd != null ? qty(x.snd, 0, 'u_db') : null, x.dur ? t('sec', { n: x.dur }) : null].filter(Boolean);
+      ul.append(h('li', null,
+        h('div', { class: 'top' }, h('span', null, dateTime(x.time)), isBase ? h('span', { class: 'tag' }, t('base')) : null, x.demo ? h('span', { class: 'tag demo' }, t('tag_demo')) : null),
+        h('div', { class: 'mid' }, h('b', null, numEl(fmt(x.vel, 2))), h('span', { class: 'unit-s' }, t('u_mms')), zoneChip(zoneOf(x.vel, mc.cls), true, true), ch ? changeChip(ch, true) : null),
+        metaBits.length ? h('div', { class: 'meta' }, metaBits.join(' · ')) : null,
+        x.note ? h('div', { class: 'notetext' }, x.note) : null,
+        h('div', { class: 'acts' },
+          isBase ? null : h('button', { class: 'btn sm icon', title: t('set_base'), 'aria-label': t('set_base'), onclick: () => { mc.baselineId = x.id; saveDb(); } }, svgIcon(ICON.flag, 15)),
+          h('button', { class: 'btn sm icon danger', title: t('delete'), 'aria-label': t('delete'), onclick: () => deleteMeas(mc, x) }, svgIcon(ICON.trash, 15)))));
+    }
+    logCard.append(ul);
+    box.append(logCard);
+  } else {
+    box.append(h('section', { class: 'card empty-mini' }, h('p', null, t('no_meas_yet'))));
+  }
+  box.append(h('div', { style: 'margin-top:16px' }, h('button', { class: 'btn danger', onclick: () => deleteMachine(mc) }, svgIcon(ICON.trash), t('del_machine'))));
+}
+
+function renderHistChart(mc) {
+  const box = $('#histChart');
+  if (!box) return;
+  const s = summaryOf(mc.id);
+  const W = Math.max(300, box.clientWidth);
+  const sig = [W, state.hover.hist, db.rev, state.lang].join('|');
+  if (sig === histSig) return;
+  histSig = sig;
+  const out = historySvg(mc, s, W, 230, state.hover.hist);
+  box.innerHTML = out.svg;
+  box._geo = out.geo;
+}
+function historySvg(mc, s, W, H, hover) {
+  const first = s.list[0].time, last = s.list[s.list.length - 1].time;
+  const pad = Math.max((last - first) * 0.06, 12 * 3600e3);
+  return lineSvg(s.list, { W, H, t0: first - pad, t1: last + pad, cls: mc.cls, base: s.base ? s.base.vel : null, hover, dots: true, dateTicks: true, label: t('history') });
+}
+
+function backToList() {
+  if (state.pushedDetail) history.back();
+  else go('machines');
+}
+async function deleteMachine(mc) {
+  const n = summaryOf(mc.id).list.length;
+  if (!(await confirmDlg(t('confirm_del_machine', { name: mc.name, n }), t('delete')))) return;
+  db.machines = db.machines.filter((m) => m.id !== mc.id);
+  db.meas = db.meas.filter((x) => x.machineId !== mc.id);
+  if (state.machineId === mc.id) selectMachine(null);
+  saveDb();
+  go('machines');
+}
+async function deleteMeas(mc, x) {
+  if (!(await confirmDlg(t('confirm_del_meas'), t('delete')))) return;
+  db.meas = db.meas.filter((m) => m.id !== x.id);
+  if (mc.baselineId === x.id) {
+    const left = db.meas.filter((m) => m.machineId === mc.id).sort((a, b) => a.time - b.time);
+    mc.baselineId = left.length ? left[0].id : null;
+  }
+  saveDb();
+}
+
+// ------------------------------------------------------- machine dialog ---
+let dlgMachineCb = null, dlgMachineEdit = null;
+function openMachineDialog(mc, cb) {
+  dlgMachineEdit = mc;
+  dlgMachineCb = cb || null;
+  $('#dlgMachineTitle').textContent = mc ? t('machine_edit') : t('machine_new');
+  $('#fName').value = mc ? mc.name : '';
+  $('#fLoc').value = mc ? mc.location || '' : '';
+  const sel = $('#fCls');
+  sel.textContent = '';
+  for (let c = 1; c <= 4; c++) sel.append(h('option', { value: c }, t('cls' + c)));
+  sel.value = String(mc ? mc.cls : state.isoClass);
+  $('#fRpm').value = mc && mc.rpm ? mc.rpm : '';
+  $('#fName').setCustomValidity('');
+  $('#dlgMachine').showModal();
+  if (!mc) setTimeout(() => $('#fName').focus(), 50);
+}
+$('#formMachine').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const name = $('#fName').value.trim();
+  if (!name) { $('#fName').setCustomValidity(t('name_req')); $('#fName').reportValidity(); return; }
+  const rpm = parseInt($('#fRpm').value, 10);
+  const fields = { name: name.slice(0, 60), location: $('#fLoc').value.trim().slice(0, 60), cls: +$('#fCls').value, rpm: rpm >= 60 && rpm <= 30000 ? rpm : null };
+  let mc = dlgMachineEdit;
+  if (mc) Object.assign(mc, fields);
+  else { mc = Object.assign({ id: uid(), created: Date.now(), baselineId: null }, fields); db.machines.push(mc); }
+  if (state.machineId === mc.id && mc.cls !== state.isoClass) { state.isoClass = mc.cls; store.set('cls', mc.cls); sendCommand([1, mc.cls]); }
+  if (!saveDb()) return;
+  $('#dlgMachine').close();
+  const cb = dlgMachineCb;
+  dlgMachineCb = null;
+  if (cb) cb(mc);
+});
+$('#fName').addEventListener('input', () => $('#fName').setCustomValidity(''));
+$('#dlgMachineCancel').onclick = () => $('#dlgMachine').close();
+
+function confirmDlg(msg, okLabel) {
+  return new Promise((resolve) => {
+    const d = $('#dlgConfirm');
+    $('#confirmText').textContent = msg;
+    $('#confirmYes').textContent = okLabel;
+    const done = (v) => { d.close(); $('#confirmYes').onclick = $('#confirmNo').onclick = null; d.onclose = null; resolve(v); };
+    $('#confirmYes').onclick = () => done(true);
+    $('#confirmNo').onclick = () => done(false);
+    d.onclose = () => resolve(false);
+    d.showModal();
+  });
+}
+
+function showHelp() { const d = $('#bleHelp'); if (!d.open) d.showModal(); }
+function closeHelp() { const d = $('#bleHelp'); if (d.open) d.close(); }
+
+// ------------------------------------------------------------- device ---
+function renderDevice() {
+  const r = state.readings[state.readings.length - 1] || {};
+  renderInfo(r);
+  renderEvents();
+  for (const g of document.querySelectorAll('.seg[data-setting]')) {
+    const k = g.dataset.setting;
+    const cur = String(k === 'lang' ? state.lang : k === 'theme' ? state.theme : state.settings[k]);
+    for (const b of g.children) b.setAttribute('aria-pressed', String(b.dataset.v === cur));
+  }
+  for (const el of document.querySelectorAll('input[data-setting]')) el.checked = !!state.settings[el.dataset.setting];
+  $('#rowAuto').hidden = !(navigator.bluetooth && navigator.bluetooth.getDevices);
+  $('#storageUsed').textContent = t('storage_used', { m: db.machines.length, n: db.meas.length });
+}
+
 function renderEvents() {
   const ul = $('#events');
   ul.textContent = '';
@@ -1424,9 +2732,7 @@ function renderEvents() {
     if (vars.zoneKey) vars.zone = zoneName(vars.zoneKey);
     if (vars.srcKey) vars.src = t('src_' + vars.srcKey);
     if (vars.clsN) vars.cls = t('cls' + vars.clsN);
-    const ic = h('span', { class: 'ic', 'aria-hidden': 'true' }, e.icon);
-    setStatusVars(ic, e.st);
-    ul.append(h('li', null, ic, h('span', null, t(e.key, vars)), h('time', { class: 'num' }, clock(e.time))));
+    ul.append(h('li', null, setStatusVars(h('span', { class: 'ic', 'aria-hidden': 'true' }, e.icon), e.st), h('span', null, t(e.key, vars)), h('time', { class: 'num' }, clock(e.time))));
   }
 }
 
@@ -1443,7 +2749,7 @@ function renderInfo(r) {
   row(t('conn'), state.source ? t('src_' + state.source) : t('st_off'));
   row(t('fw'), state.info.fw || '—');
   row(t('board'), state.info.board || '—');
-  row(t('fs'), numEl(state.fs ? fmt(state.fs, 1) + ' ' + t('u_hz') : '—'));
+  row(t('fs'), state.fs ? qty(state.fs, 1, 'u_hz') : '—');
   row(t('uptime'), numEl(fmtUptime(r.up)));
   row(t('packets'), numEl(fmtInt(state.packets)));
   const ago = state.lastRx ? Math.round((Date.now() - state.lastRx) / 1000) : null;
@@ -1454,22 +2760,27 @@ function renderInfo(r) {
     sens.append(h('span', { class: 'sensor', title: s[k] ? t('on') : t('off') }, h('span', { class: 'dot' + (s[k] ? ' good' : '') }), t('s_' + k)));
   }
   row(t('sensors'), sens);
+  if (state.firstReading) row(t('first_row'), h('span', null, dateTime(state.firstReading.time) + ' · ', velText(state.firstReading.vel)));
 }
 
 // ------------------------------------------------------------ tooltip ---
 function showTip(ev, value, sub) {
   const tip = $('#tip');
   tip.textContent = '';
-  tip.append(h('div', { class: 'v' }, h('span', { class: 'k' }), numEl(value)), h('div', { class: 's' }, sub));
+  tip.append(h('div', { class: 'v' }, h('span', { class: 'k' }), value), h('div', { class: 's' }, sub));
   tip.hidden = false;
   const w = tip.offsetWidth, hh = tip.offsetHeight;
   let x = ev.clientX + 14, y = ev.clientY - hh - 12;
   if (x + w > window.innerWidth - 8) x = ev.clientX - w - 14;
+  if (x < 8) x = 8;
   if (y < 8) y = ev.clientY + 16;
   tip.style.left = x + 'px';
   tip.style.top = y + 'px';
 }
 function hideTip() { $('#tip').hidden = true; }
+// touch: a tap shows the tooltip; the next tap elsewhere or a scroll hides it
+document.addEventListener('pointerdown', (e) => { if (!e.target.closest('.chart')) clearHover(); }, true);
+window.addEventListener('scroll', () => { if (!$('#tip').hidden) clearHover(); }, { passive: true });
 
 let toastTimer = null;
 function toast(msg) {
@@ -1480,7 +2791,16 @@ function toast(msg) {
   toastTimer = setTimeout(() => { el.hidden = true; }, 4500);
 }
 
-// -------------------------------------------------------------- export ---
+// ------------------------------------------------------ export / share ---
+function download(name, text, type) {
+  const blob = new Blob([text], { type });
+  const a = h('a', { href: URL.createObjectURL(blob), download: name });
+  document.body.append(a);
+  a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+}
+function stamp() { return new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-'); }
+const csvCell = (v) => (v == null ? '' : /[",\n]/.test(String(v)) ? '"' + String(v).replace(/"/g, '""') + '"' : String(v));
 function exportCsv() {
   const cols = ['time', 'seq', 'vel_mm_s', 'zone', 'acc_rms_mg', 'acc_peak_mg', 'crest', 'dom_freq_hz', 'dom_vel_mm_s', 'axis',
     'ir_object_c', 'ir_ambient_c', 'internal_temp_c', 'humidity_pct', 'pressure_hpa', 'sound_dba', 'piezo_peak_mv', 'piezo_rms_mv', 'piezo_impacts'];
@@ -1488,13 +2808,173 @@ function exportCsv() {
   const rows = state.readings.map((x) => [new Date(x.time).toISOString(), x.seq, val(x.vel, 3), x.vel == null ? '' : STATUS[zoneOf(x.vel)].key,
     val(x.arms, 1), val(x.apk, 1), val(x.crest, 2), val(x.f, 1), val(x.fv, 3), x.axis == null ? '' : 'XYZ'[x.axis],
     val(x.ir, 2), val(x.ira, 2), val(x.t, 2), val(x.rh, 1), val(x.p, 1), val(x.snd, 1), val(x.pzp, 0), val(x.pzr, 0), val(x.pzi, 0)].join(','));
-  const blob = new Blob(['﻿' + cols.join(',') + '\n' + rows.join('\n') + '\n'], { type: 'text/csv;charset=utf-8' });
-  const a = h('a', { href: URL.createObjectURL(blob), download: 'mantis-' + new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-') + '.csv' });
-  document.body.append(a);
-  a.click();
-  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+  download('mantis-live-' + stamp() + '.csv', '﻿' + cols.join(',') + '\n' + rows.join('\n') + '\n', 'text/csv;charset=utf-8');
   toast(t('exported', { n: state.readings.length }));
 }
+function exportMeasCsv() {
+  const cols = ['machine', 'location', 'iso_class', 'rpm', 'time', 'vel_mm_s', 'zone', 'change_vs_baseline_pct', 'baseline', 'vel_max_mm_s',
+    'acc_rms_mg', 'acc_peak_mg', 'crest', 'dom_freq_hz', 'axis', 'ir_c', 'internal_c', 'sound_dba', 'duration_s', 'readings', 'demo', 'note'];
+  const rows = [];
+  for (const mc of db.machines.slice().sort(byName)) {
+    const s = summaryOf(mc.id);
+    for (const x of s.list) {
+      const ch = s.base && x !== s.base ? changeInfo(x.vel, s.base.vel) : null;
+      rows.push([mc.name, mc.location, ['I', 'II', 'III', 'IV'][mc.cls - 1], x.rpm || mc.rpm, new Date(x.time).toISOString(), x.vel, STATUS[zoneOf(x.vel, mc.cls)].key,
+        ch ? Math.round(ch.r * 100) : '', s.base && s.base.id === x.id ? 'yes' : '', x.velMax, x.arms, x.apk, x.crest, x.f, x.axis == null ? '' : 'XYZ'[x.axis],
+        x.ir, x.t, x.snd, x.dur, x.n, x.demo ? 'yes' : '', x.note].map(csvCell).join(','));
+    }
+  }
+  download('mantis-measurements-' + stamp() + '.csv', '﻿' + cols.join(',') + '\n' + rows.join('\n') + '\n', 'text/csv;charset=utf-8');
+  toast(t('exported', { n: rows.length }));
+}
+function backup() {
+  download('mantis-backup-' + stamp() + '.json', JSON.stringify({ app: 'mantis', v: 1, exported: new Date().toISOString(), machines: db.machines, meas: db.meas }), 'application/json');
+}
+async function restore(file) {
+  let o;
+  try { o = JSON.parse(await file.text()); } catch (e) { o = null; }
+  if (!o || o.app !== 'mantis' || !Array.isArray(o.machines) || !Array.isArray(o.meas)) return toast(t('restore_bad'));
+  const machines = o.machines.filter((m) => m && m.id && m.name && ISO[m.cls]);
+  const ids = new Set([...db.machines.map((m) => m.id), ...machines.map((m) => m.id)]);
+  const meas = o.meas.filter((x) => x && x.id && ids.has(x.machineId) && typeof x.vel === 'number');
+  // merge: entries with the same id are replaced by the backup's copy
+  for (const m of machines) { const i = db.machines.findIndex((x) => x.id === m.id); if (i >= 0) db.machines[i] = m; else db.machines.push(m); }
+  for (const x of meas) { const i = db.meas.findIndex((y) => y.id === x.id); if (i >= 0) db.meas[i] = x; else db.meas.push(x); }
+  if (saveDb()) toast(t('restored', { m: machines.length, n: meas.length }));
+}
+
+function machineSummaryText(mc) {
+  const s = summaryOf(mc.id);
+  const lines = ['MANTIS · ' + mc.name + (mc.location ? ' (' + mc.location + ')' : '')];
+  if (s.last) {
+    lines.push(dateTime(s.last.time) + ': ' + fmt(s.last.vel, 2) + ' ' + t('u_mms') + ' · ' + zoneName(s.z));
+    if (s.ch) lines.push(t('vs_base') + ': ' + fmt(s.base.vel, 2) + ' → ' + (s.ch.r >= 0 ? '+' : '−') + Math.abs(Math.round(s.ch.r * 100)) + '% (' + t(s.ch.key) + ')');
+    const res = measAnalysis(s.last, mc, s.base);
+    for (const it of res.items) lines.push('• ' + t(it.key + '_t', it.vars));
+  }
+  return lines.join('\n');
+}
+function routeSummaryText() {
+  const sums = summaries();
+  const lines = ['MANTIS · ' + t('report_route') + ' · ' + dateLabel(Date.now())];
+  for (const mc of db.machines.slice().sort((a, b) => sums.get(b.id).rank - sums.get(a.id).rank || byName(a, b))) {
+    const s = sums.get(mc.id);
+    lines.push(s.last
+      ? '• ' + mc.name + ': ' + fmt(s.last.vel, 2) + ' ' + t('u_mms') + ' · ' + STATUS[s.z].key + ' ' + t('zone' + STATUS[s.z].key + '_t') +
+        (s.ch ? ' · ' + (s.ch.r >= 0 ? '+' : '−') + Math.abs(Math.round(s.ch.r * 100)) + '%' : '') + ' · ' + dayLabel(s.last.time)
+      : '• ' + mc.name + ': ' + t('not_measured'));
+  }
+  return lines.join('\n');
+}
+async function shareText(text, title) {
+  if (navigator.share) {
+    try { await navigator.share({ title, text }); return; } catch (e) { if (e && e.name === 'AbortError') return; }
+  }
+  try { await navigator.clipboard.writeText(text); toast(t('copied')); } catch (e) { toast(text); }
+}
+
+// ------------------------------------------------------------ reports ---
+// Printed from a hidden light-themed block; "Save as PDF" in the print dialog
+function reportHeader(title, sub) {
+  const logo = '<svg width="34" height="34" viewBox="0 0 34 34" aria-hidden="true"><rect x="1" y="1" width="32" height="32" rx="9" fill="#0b0b0b"/><path d="M7 19.5h4l2.5-7 4 13 3-9 2 3H27" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  const right = h('div', { style: 'display:flex;align-items:center;gap:10px' }, h('div', { style: 'text-align:end' }, h('strong', { style: 'letter-spacing:.06em' }, 'MANTIS'), h('p', null, t('generated') + ': ' + dateTime(Date.now()))));
+  right.insertAdjacentHTML('beforeend', logo);
+  return h('div', { class: 'rh' }, h('div', null, h('h1', null, title), sub ? h('p', null, sub) : null), right);
+}
+function chartBlock(svg) { const d = h('div', { class: 'chart' }); d.innerHTML = svg; return d; }
+function buildMachineReport(mc) {
+  const s = summaryOf(mc.id);
+  const root = h('div');
+  root.append(reportHeader(t('report_title'), mc.name + (mc.location ? ' · ' + mc.location : '')));
+  const kv = (label, value) => h('div', null, h('span', null, label), h('b', null, value));
+  root.append(h('div', { class: 'kv' },
+    kv(t('cls_short'), t('cls' + mc.cls)), kv(t('rpm'), mc.rpm ? numEl(mc.rpm + ' RPM') : '—'),
+    kv(t('latest'), velText(s.last.vel)), kv(t('base'), velText(s.base.vel))));
+  const sum = h('section', null, h('h2', null, t('summary')));
+  const chips = h('div', { class: 'chips' }, zoneChip(s.z), s.ch ? changeChip(s.ch) : null, h('span', { class: 'note' }, dateTime(s.last.time)));
+  sum.append(chips, h('div', { style: 'height:10px' }), hintsList(measAnalysis(s.last, mc, s.base)));
+  if (s.last.note) sum.append(h('p', null, t('note') + ': ' + s.last.note));
+  root.append(sum);
+  if (s.last.spec) {
+    const res = measAnalysis(s.last, mc, s.base);
+    root.append(h('section', null, h('h2', null, t('latest_spec')), chartBlock(specSvg(s.last.spec, s.last.fs, 680, 220, { f: s.last.f, markers: res.markers }).svg)));
+  }
+  if (s.list.length > 1) root.append(h('section', null, h('h2', null, t('history')), chartBlock(historySvg(mc, s, 680, 210, null).svg)));
+  const tb = h('table', null, h('thead', null, h('tr', null, ...['col_date', 'col_val', 'col_zone', 'col_change', 'col_f', 'col_ir', 'col_snd', 'col_note'].map((k) => h('th', null, t(k))))));
+  const body = h('tbody');
+  for (const x of s.list.slice(-30).reverse()) {
+    const ch = s.base && x.id !== s.base.id ? changeInfo(x.vel, s.base.vel) : null;
+    body.append(h('tr', null, h('td', null, dateTime(x.time)), h('td', null, numEl(fmt(x.vel, 2))), h('td', null, STATUS[zoneOf(x.vel, mc.cls)].key),
+      h('td', null, ch ? numEl((ch.r >= 0 ? '+' : '−') + Math.abs(Math.round(ch.r * 100)) + '%') : s.base && x.id === s.base.id ? t('base') : '—'),
+      h('td', null, numEl(fmt(x.f, 1))), h('td', null, numEl(fmt(x.ir, 1))), h('td', null, numEl(fmt(x.snd, 0))), h('td', null, x.note || '')));
+  }
+  tb.append(body);
+  root.append(h('section', null, h('h2', null, t('measurements')), tb));
+  root.append(h('p', { class: 'foot' }, t('report_foot')));
+  return root;
+}
+function buildRouteReport() {
+  const sums = summaries();
+  const root = h('div');
+  root.append(reportHeader(t('report_route'), dateLabel(Date.now())));
+  const today = startOfToday();
+  const counts = { good: 0, warning: 0, serious: 0, critical: 0, none: 0 };
+  for (const mc of db.machines) { const s = sums.get(mc.id); if (!s.last) counts.none++; else counts[['good', 'warning', 'serious', 'critical'][s.rank]]++; }
+  const done = db.machines.filter((m) => { const s = sums.get(m.id); return s.last && s.last.time >= today; }).length;
+  const kv = (label, value) => h('div', null, h('span', null, label), h('b', null, value));
+  root.append(h('div', { class: 'kv' },
+    kv(t('machines_title'), numEl(String(db.machines.length))), kv(t('route_today'), numEl(done + ' / ' + db.machines.length)),
+    kv(t('zoneC_t'), numEl(String(counts.warning + counts.serious))), kv(t('zoneD_t'), numEl(String(counts.critical)))));
+  const tb = h('table', null, h('thead', null, h('tr', null, ...[t('machine'), t('location'), t('col_date'), t('col_val'), t('status'), t('col_change'), t('hints')].map((x) => h('th', null, x)))));
+  const body = h('tbody');
+  for (const mc of db.machines.slice().sort((a, b) => sums.get(b.id).rank - sums.get(a.id).rank || byName(a, b))) {
+    const s = sums.get(mc.id);
+    if (!s.last) { body.append(h('tr', null, h('td', null, mc.name), h('td', null, mc.location || ''), h('td', { colspan: 5 }, t('not_measured')))); continue; }
+    const res = measAnalysis(s.last, mc, s.base);
+    const top = res.items.find((it) => it.key !== 'h_rise') || res.items[0];
+    body.append(h('tr', null, h('td', null, mc.name), h('td', null, mc.location || ''), h('td', null, dateTime(s.last.time)),
+      h('td', null, numEl(fmt(s.last.vel, 2))), h('td', null, zoneChip(s.z, true, true)),
+      h('td', null, s.ch ? changeChip(s.ch, true) : '—'), h('td', null, top ? t(top.key + '_t', top.vars) : '')));
+  }
+  tb.append(body);
+  root.append(h('section', null, h('h2', null, t('summary')), tb));
+  root.append(h('p', { class: 'foot' }, t('report_foot')));
+  return root;
+}
+function printReport(el, name) {
+  const box = $('#report');
+  box.textContent = '';
+  box.append(el);
+  box.dir = document.documentElement.dir;
+  const title = document.title;
+  // the print dialog suggests the page title as the PDF file name
+  document.title = 'MANTIS - ' + (name || t('report_route')) + ' - ' + new Date().toISOString().slice(0, 10);
+  const restoreTitle = () => { document.title = title; window.removeEventListener('afterprint', restoreTitle); };
+  window.addEventListener('afterprint', restoreTitle);
+  window.print();
+}
+
+// ------------------------------------------------------------- routing ---
+function route() {
+  const [tab, sub] = location.hash.slice(1).split('/');
+  state.tab = TABS.includes(tab) ? tab : 'live';
+  state.machineView = state.tab === 'machines' && sub ? decodeURIComponent(sub) : null;
+  if (state.machineView && !machineById(state.machineView)) state.machineView = null;
+  if (!state.machineView) state.pushedDetail = false;
+  for (const p of document.querySelectorAll('.panel')) p.hidden = p.dataset.tab !== state.tab;
+  machSig = '';
+  clearHover();
+  scheduleRender();
+}
+// tab switches replace the history entry (back leaves the app as usual);
+// opening a machine pushes one, so back returns to the list
+function go(hash, push) {
+  if (push) { state.pushedDetail = true; location.hash = hash; window.scrollTo(0, 0); return; }
+  history.replaceState(null, '', '#' + hash);
+  route();
+  window.scrollTo(0, 0);
+}
+window.addEventListener('hashchange', route);
 
 // ----------------------------------------------------------- settings ---
 function applyLang() {
@@ -1505,44 +2985,90 @@ function applyLang() {
     el.title = t(el.dataset.i18nTitle);
     el.setAttribute('aria-label', el.title);
   }
+  for (const el of document.querySelectorAll('[data-i18n-ph]')) el.placeholder = t(el.dataset.i18nPh);
+  for (const el of document.querySelectorAll('[data-i18n-aria]')) el.setAttribute('aria-label', t(el.dataset.i18nAria));
+  for (const b of document.querySelectorAll('.seg[data-setting="dur"] button')) b.textContent = t('sec', { n: b.dataset.v });
   $('#btnLang').textContent = state.lang === 'ar' ? 'EN' : 'ع';
   const ios = /iPhone|iPad|iPod/.test(navigator.userAgent);
   $('#browserNote').textContent = navigator.bluetooth ? t('browser_ok') : t(ios ? 'no_ble_ios' : 'no_ble');
   for (const b of document.querySelectorAll('[data-act="usb"]')) b.hidden = !navigator.serial;
+  inspectSig = selSig = machSig = histSig = '';
   scheduleRender();
 }
 function applyTheme() {
   if (state.theme === 'auto') document.documentElement.removeAttribute('data-theme');
   else document.documentElement.setAttribute('data-theme', state.theme);
 }
+function setSetting(k, v) {
+  if (k === 'lang') { state.lang = v; store.set('lang', v); applyLang(); return; }
+  if (k === 'theme') { state.theme = v; store.set('theme', v); applyTheme(); scheduleRender(); return; }
+  state.settings[k] = v;
+  store.set('settings', state.settings);
+  if (k === 'wake') updateWakeLock();
+  if (k === 'beep' && v) beep(3);
+  inspectSig = '';
+  scheduleRender();
+}
 
 // ------------------------------------------------------------ wiring ---
-$('#btnBle').onclick = () => connectBle(false);
-$('#btnBleAll').onclick = () => connectBle(true);
-$('#helpClose').onclick = () => { $('#bleHelp').hidden = true; };
+const ACTS = { ble: () => connectBle(false), usb: connectUsb, demo: startDemo, help: showHelp, disconnect };
+for (const b of document.querySelectorAll('[data-act]')) b.onclick = ACTS[b.dataset.act];
+for (const a of document.querySelectorAll('[data-nav]')) a.onclick = (e) => { e.preventDefault(); go(a.dataset.nav); };
+$('#btnConnect').onclick = () => connectBle(false);
 $('#btnUsb').onclick = connectUsb;
-$('#btnDemo').onclick = startDemo;
-for (const b of document.querySelectorAll('[data-act]')) {
-  b.onclick = { ble: () => connectBle(false), usb: connectUsb, demo: startDemo }[b.dataset.act];
-}
-$('#btnDisconnect').onclick = async () => {
-  const had = state.source && state.source !== 'demo';
-  await stopSource();
-  if (had) addEvent('serious', '!', 'ev_disc');
-};
-$('#btnLang').onclick = () => { state.lang = state.lang === 'ar' ? 'en' : 'ar'; store.set('lang', state.lang); applyLang(); };
+$('#btnDisconnect').onclick = disconnect;
+$('#connPill').onclick = () => go('device');
+$('#liveMini').onclick = () => go('live');
+$('#btnBleAll').onclick = () => { closeHelp(); connectBle(true); };
+$('#btnHelpRetry').onclick = () => { closeHelp(); connectBle(false); };
+$('#helpClose').onclick = closeHelp;
+$('#btnLang').onclick = () => setSetting('lang', state.lang === 'ar' ? 'en' : 'ar');
 $('#btnTheme').onclick = () => {
   const dark = state.theme === 'dark' || (state.theme === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
-  state.theme = dark ? 'light' : 'dark';
-  store.set('theme', state.theme);
-  applyTheme();
+  setSetting('theme', dark ? 'light' : 'dark');
 };
+for (const g of document.querySelectorAll('.seg[data-setting]')) {
+  g.onclick = (e) => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    const k = g.dataset.setting;
+    setSetting(k, k === 'dur' || k === 'lineHz' ? +b.dataset.v : b.dataset.v);
+  };
+}
+for (const el of document.querySelectorAll('input[data-setting]')) el.onchange = () => setSetting(el.dataset.setting, el.checked);
 $('#isoClass').onchange = (e) => {
   state.isoClass = +e.target.value;
   store.set('cls', state.isoClass);
+  const mc = machineById(state.machineId);
+  if (mc) { mc.cls = state.isoClass; saveDb(); }
   state.reportedZone = zoneOf((state.readings[state.readings.length - 1] || {}).vel);
   addEvent('good', 'i', 'ev_cls', { clsN: state.isoClass });
   sendCommand([1, state.isoClass]);
+};
+$('#machineSel').onchange = (e) => {
+  const v = e.target.value;
+  if (v === '__new') {
+    e.target.value = machineById(state.machineId) ? state.machineId : '';
+    openMachineDialog(null, (m) => selectMachine(m.id));
+  } else selectMachine(v || null);
+};
+$('#btnAddMachine').onclick = () => openMachineDialog(null, (m) => selectMachine(m.id));
+$('#btnNewMachine').onclick = () => openMachineDialog(null, (m) => go('machines/' + m.id, true));
+$('#btnRouteReport').onclick = () => printReport(buildRouteReport());
+$('#btnRouteShare').onclick = () => shareText(routeSummaryText(), 'MANTIS · ' + t('report_route'));
+$('#machSearch').oninput = (e) => { state.search = e.target.value; scheduleRender(); };
+$('#rpmInput').onchange = (e) => {
+  const v = parseInt(e.target.value, 10);
+  const rpm = v >= 60 && v <= 30000 ? v : null;
+  const mc = machineById(state.machineId);
+  if (mc) { mc.rpm = rpm; saveDb(); } else { state.rpmManual = rpm; store.set('rpm', rpm); }
+  scheduleRender();
+};
+$('#btnUseDom').onclick = () => {
+  const r = state.readings[state.readings.length - 1];
+  if (!r || !r.f) return;
+  $('#rpmInput').value = Math.round(r.f * 60);
+  $('#rpmInput').onchange({ target: $('#rpmInput') });
 };
 $('#rangeSeg').onclick = (e) => {
   const m = e.target.dataset && e.target.dataset.m;
@@ -1560,6 +3086,10 @@ for (const g of document.querySelectorAll('.seg[data-view]')) {
 }
 $('#btnIdentify').onclick = () => { sendCommand([2]); toast(t('identify_sent')); };
 $('#btnExport').onclick = exportCsv;
+$('#btnExportMeas').onclick = exportMeasCsv;
+$('#btnBackup').onclick = backup;
+$('#btnRestore').onclick = () => $('#fileRestore').click();
+$('#fileRestore').onchange = (e) => { const f = e.target.files[0]; e.target.value = ''; if (f) restore(f); };
 $('#btnFirstReading').onclick = () => {
   if (state.firstReading || state.firstReadingPending || state.conn !== 'live' || Date.now() - state.lastRx > 5000 || !['ble', 'usb'].includes(state.source)) return;
   state.firstReadingPending = true;
@@ -1572,12 +3102,13 @@ $('#btnClear').onclick = () => {
   toast(t('cleared'));
   scheduleRender();
 };
-$('#specChart').addEventListener('pointermove', onSpecMove);
-$('#specChart').addEventListener('pointerleave', onSpecLeave);
-$('#trendChart').addEventListener('pointermove', onTrendMove);
-$('#trendChart').addEventListener('pointerleave', onTrendLeave);
+bindSpecHover($('#specChart'));
+bindLineHover($('#trendChart'), 'trend', (p) => clock(p.time) + ' · ' + zoneName(zoneOf(p.vel)));
 new ResizeObserver(() => scheduleRender()).observe($('main'));
-setInterval(() => { if (state.source) scheduleRender(); }, 1000);
+new IntersectionObserver(([e]) => { state.heroVisible = e.isIntersecting; scheduleRender(); },
+  { rootMargin: '-100px 0px 0px 0px', threshold: 0.3 }).observe($('#heroCard'));
+setInterval(() => { if (state.source || state.tab === 'machines') scheduleRender(); }, 1000);
+window.addEventListener('afterprint', () => { $('#report').textContent = ''; });
 
 // offline support once published (https only; localhost is for development)
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
@@ -1586,7 +3117,8 @@ if ('serviceWorker' in navigator && location.protocol === 'https:') {
 
 applyTheme();
 applyLang();
-render();
+route();
+autoConnect();
 </script>
 </body>
 </html>
